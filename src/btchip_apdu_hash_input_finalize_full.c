@@ -503,9 +503,6 @@ unsigned short btchip_apdu_hash_input_finalize_full() {
         } else if (btchip_context_D.outputParsingState ==
                    BTCHIP_OUTPUT_HANDLE_LEGACY) {
             status = btchip_bagl_confirm_full_output();
-        } else if (btchip_context_D.outputParsingState ==
-                   BTCHIP_OUTPUT_HANDLE_LEGACY) {
-            status = btchip_bagl_confirm_full_output();
         } else {
             status = btchip_bagl_confirm_single_output();
         }
