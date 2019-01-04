@@ -24,8 +24,7 @@ unsigned short btchip_apdu_hash_sign() {
     unsigned long int lockTime;
     uint32_t sighashType;
     unsigned char dataBuffer[8];
-    unsigned char hash1[32];
-    unsigned char hash2[32];
+    unsigned char hash[32];
     unsigned char authorizationLength;
     unsigned char *parameters = G_io_apdu_buffer + ISO_OFFSET_CDATA;
     btchip_transaction_summary_t
@@ -124,17 +123,13 @@ unsigned short btchip_apdu_hash_sign() {
                 ("Finalize hash with\n", dataBuffer, sizeof(dataBuffer)));
 
             cx_hash(&btchip_context_D.transactionHashFull.header, CX_LAST,
-                    dataBuffer, sizeof(dataBuffer), hash1);
-            L_DEBUG_BUF(("Hash1\n", hash1, sizeof(hash1)));
+                    dataBuffer, sizeof(dataBuffer), hash, 32);
+            L_DEBUG_BUF(("hash\n", hash, sizeof(hash)));
 
-            // Rehash
-            cx_sha256_init(&localHash);
-            cx_hash(&localHash.header, CX_LAST, hash1, sizeof(hash1), hash2);
-            L_DEBUG_BUF(("Hash2\n", hash2, sizeof(hash2)));
 
             // Sign
             btchip_signverify_finalhash(
-                &btchip_private_key_D, 1, hash2, sizeof(hash2),
+                &btchip_private_key_D, 1, hash, sizeof(hash),
                 G_io_apdu_buffer, sizeof(G_io_apdu_buffer),
                 ((N_btchip.bkp.config.options &
                   BTCHIP_OPTION_DETERMINISTIC_SIGNATURE) != 0));

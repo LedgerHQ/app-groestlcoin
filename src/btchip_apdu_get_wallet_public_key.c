@@ -97,8 +97,6 @@ unsigned short btchip_apdu_get_wallet_public_key() {
         return BTCHIP_SW_SECURITY_STATUS_NOT_SATISFIED;
     }
 
-    PRINTF("pin ok\n");
-
     btchip_private_derive_keypair(keyPath, 1, chainCode);
     
 
@@ -136,6 +134,7 @@ unsigned short btchip_apdu_get_wallet_public_key() {
                                   keyLength,            // INLEN
                                   tmp + 2               // OUT
                                   );
+        
         if (!nativeSegwit) {
             keyLength = btchip_public_key_to_encoded_base58(
                 tmp,                   // IN

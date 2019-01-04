@@ -223,9 +223,9 @@ void btchip_public_key_hash160(unsigned char WIDE *in, unsigned short inlen,
     unsigned char buffer[32];
 
     cx_sha256_init(&u.shasha);
-    cx_hash(&u.shasha.header, CX_LAST, in, inlen, buffer);
+    cx_hash(&u.shasha.header, CX_LAST, in, inlen, buffer, 32);
     cx_ripemd160_init(&u.riprip);
-    cx_hash(&u.riprip.header, CX_LAST, buffer, 32, out);
+    cx_hash(&u.riprip.header, CX_LAST, buffer, 32, out, 20);
 }
 
 unsigned short btchip_public_key_to_encoded_base58(
@@ -233,13 +233,13 @@ unsigned short btchip_public_key_to_encoded_base58(
     unsigned short outlen, unsigned short version,
     unsigned char alreadyHashed) {
     unsigned char tmpBuffer[26];
-    unsigned char checksumBuffer[32];
-    cx_sha256_t hash;
+    unsigned char checksumBuffer[64];
+    cx_groestl_t hash;
     unsigned char versionSize = (version > 255 ? 2 : 1);
     size_t outputLen;
 
+
     if (!alreadyHashed) {
-        L_DEBUG_BUF(("To hash\n", in, inlen));
         btchip_public_key_hash160(in, inlen, tmpBuffer + versionSize);
         L_DEBUG_BUF(("Hash160\n", (tmpBuffer + versionSize), 20));
         if (version > 255) {
@@ -252,10 +252,12 @@ unsigned short btchip_public_key_to_encoded_base58(
         os_memmove(tmpBuffer, in, 20 + versionSize);
     }
 
-    cx_sha256_init(&hash);
-    cx_hash(&hash.header, CX_LAST, tmpBuffer, 20 + versionSize, checksumBuffer);
-    cx_sha256_init(&hash);
-    cx_hash(&hash.header, CX_LAST, checksumBuffer, 32, checksumBuffer);
+
+
+    cx_groestl_init(&hash, 512);
+    cx_hash(&hash.header, CX_LAST, tmpBuffer, 20 + versionSize, checksumBuffer, 64);
+    cx_groestl_init(&hash, 512);
+    cx_hash(&hash.header, CX_LAST, checksumBuffer, 64, checksumBuffer, 64);
 
     L_DEBUG_BUF(("Checksum\n", checksumBuffer, 4));
     os_memmove(tmpBuffer + 20 + versionSize, checksumBuffer, 4);
@@ -289,9 +291,9 @@ unsigned short btchip_decode_base58_address(unsigned char WIDE *in,
 
     // Compute hash to verify address
     cx_sha256_init(&hash);
-    cx_hash(&hash.header, CX_LAST, out, outlen - 4, hashBuffer);
+    cx_hash(&hash.header, CX_LAST, out, outlen - 4, hashBuffer, 32);
     cx_sha256_init(&hash);
-    cx_hash(&hash.header, CX_LAST, hashBuffer, 32, hashBuffer);
+    cx_hash(&hash.header, CX_LAST, hashBuffer, 32, hashBuffer, 32);
 
     if (os_memcmp(out + outlen - 4, hashBuffer, 4)) {
         L_DEBUG_BUF(
@@ -441,11 +443,11 @@ void btchip_signverify_finalhash(void WIDE *keyContext, unsigned char sign,
                                  unsigned char WIDE *in, unsigned short inlen,
                                  unsigned char *out, unsigned short outlen,
                                  unsigned char rfc6979) {
-    if (sign) {
+    if (sign) {        
         unsigned int info = 0;
         cx_ecdsa_sign((cx_ecfp_private_key_t WIDE *)keyContext,
                       CX_LAST | (rfc6979 ? CX_RND_RFC6979 : CX_RND_TRNG),
-                      CX_SHA256, in, inlen, out, &info);
+                      CX_SHA256, in, inlen, out, 80, &info);
         if (info & CX_ECCINFO_PARITY_ODD) {
             out[0] |= 0x01;
         }

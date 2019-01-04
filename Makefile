@@ -157,9 +157,23 @@ else ifeq ($(COIN),zclassic)
 DEFINES   += COIN_P2PKH_VERSION=7352 COIN_P2SH_VERSION=7357 COIN_FAMILY=1 COIN_COINID=\"ZClassic\" COIN_COINID_HEADER=\"ZCLASSIC\" COIN_COLOR_HDR=0xc87035 COIN_COLOR_DB=0xc78457 COIN_COINID_NAME=\"ZClassic\" COIN_COINID_SHORT=\"ZCL\" COIN_KIND=COIN_KIND_ZCLASSIC
 APPNAME ="ZClassic"
 APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),groestlcoin)
+# Groestlcoin
+DEFINES   += COIN_P2PKH_VERSION=36 COIN_P2SH_VERSION=5 COIN_FAMILY=1 COIN_COINID=\"GroestlCoin\" COIN_COINID_HEADER=\"GROESTLCOIN\" COIN_COLOR_HDR=0xFCB653 COIN_COLOR_DB=0xFEDBA9 COIN_COINID_NAME=\"Groestlcoin\" COIN_COINID_SHORT=\"GRS\" COIN_NATIVE_SEGWIT_PREFIX=\"grs\" COIN_KIND=COIN_KIND_GROESTLCOIN COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+DEFINES_LIB=# we're not using the lib :)
+APPNAME ="Groestlcoin"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+APP_LOAD_FLAGS=--appFlags 0x50
+else ifeq ($(COIN),groestlcoin_testnet)
+# Groestlcoin testnet
+DEFINES   += COIN_P2PKH_VERSION=111 COIN_P2SH_VERSION=196 COIN_FAMILY=1 COIN_COINID=\"GroestlCoin\" COIN_COINID_HEADER=\"GROESTLCOIN\" COIN_COLOR_HDR=0xFCB653 COIN_COLOR_DB=0xFEDBA9 COIN_COINID_NAME=\"Groestlcoin\" COIN_COINID_SHORT=\"TGRS\" COIN_NATIVE_SEGWIT_PREFIX=\"tgrs\" COIN_KIND=COIN_KIND_GROESTLCOIN COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+DEFINES_LIB=# we're not using the lib :)
+APPNAME ="Groestlcoin Test"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+APP_LOAD_FLAGS=--appFlags 0x50
 else
 ifeq ($(filter clean,$(MAKECMDGOALS)),)
-$(error Unsupported COIN - use bitcoin_testnet, bitcoin, bitcoin_cash, bitcoin_gold, litecoin, dogecoin, dash, zcash, horizen, komodo, stratis, peercoin, posw, pivx, viacoin, vertcoin, stealth, digibyte, qtum, hcash, bitcoin_private, zcoin, gamecredits, zclassic) 
+$(error Unsupported COIN - use bitcoin_testnet, bitcoin, bitcoin_cash, bitcoin_gold, litecoin, dogecoin, dash, zcash, horizen, komodo, stratis, peercoin, posw, pivx, viacoin, vertcoin, stealth, digibyte, qtum, hcash, bitcoin_private, zcoin,  gamecredits, zclassic, groestlcoin, groestlcoin_testnet) 
 endif
 endif
 
@@ -197,7 +211,7 @@ DEFINES   += BLE_SEGMENT_SIZE=32 #max MTU, min 20
 DEFINES   += UNUSED\(x\)=\(void\)x
 DEFINES   += APPVERSION=\"$(APPVERSION)\"
 
-DEFINES += CX_COMPLIANCE_141
+#DEFINES += CX_COMPLIANCE_141
 
 ##############
 # Compiler #
@@ -247,4 +261,4 @@ include $(BOLOS_SDK)/Makefile.rules
 dep/%.d: %.c Makefile
 
 listvariants:
-	@echo VARIANTS COIN bitcoin_testnet bitcoin bitcoin_cash bitcoin_gold litecoin dogecoin dash horizen komodo stratis peercoin posw pivx viacoin vertcoin stealth digibyte qtum hcash bitcoin_private zcoin gamecredits zclassic
+	@echo VARIANTS COIN groestlcoin groestlcoin_testnet

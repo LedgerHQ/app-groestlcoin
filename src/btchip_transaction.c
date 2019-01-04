@@ -82,12 +82,12 @@ void transaction_offset(unsigned char value) {
         L_DEBUG_BUF(("Add to hash full\n",
                      btchip_context_D.transactionBufferPointer, value));
         cx_hash(&btchip_context_D.transactionHashFull.header, 0,
-                btchip_context_D.transactionBufferPointer, value, NULL);
+                btchip_context_D.transactionBufferPointer, value, NULL, 32);
     }
     if ((btchip_context_D.transactionHashOption &
          TRANSACTION_HASH_AUTHORIZATION) != 0) {
         cx_hash(&btchip_context_D.transactionHashAuthorization.header, 0,
-                btchip_context_D.transactionBufferPointer, value, NULL);
+                btchip_context_D.transactionBufferPointer, value, NULL, 32);
     }
 }
 
@@ -182,26 +182,26 @@ void transaction_parse(unsigned char parseMode) {
                                 &btchip_context_D.transactionHashFull.header, 0,
                                 btchip_context_D.transactionVersion,
                                 sizeof(btchip_context_D.transactionVersion),
-                                NULL);
+                                NULL, 32);
                             cx_hash(
                                 &btchip_context_D.transactionHashFull.header, 0,
                                 btchip_context_D.segwit.cache.hashedPrevouts,
                                 sizeof(btchip_context_D.segwit.cache
                                            .hashedPrevouts),
-                                NULL);
+                                NULL, 32);
                             cx_hash(
                                 &btchip_context_D.transactionHashFull.header, 0,
                                 btchip_context_D.segwit.cache.hashedSequence,
                                 sizeof(btchip_context_D.segwit.cache
                                            .hashedSequence),
-                                NULL);
+                                NULL, 32);
                             cx_hash(&btchip_context_D
                                          .transactionHashAuthorization.header,
                                     0,
                                     (unsigned char WIDE *)&btchip_context_D
                                         .segwit.cache,
                                     sizeof(btchip_context_D.segwit.cache),
-                                    NULL);
+                                    NULL, 32);
                         }
                     }
                     // Parse the beginning of the transaction
@@ -309,7 +309,7 @@ void transaction_parse(unsigned char parseMode) {
                                          .header,
                                     0,
                                     btchip_context_D.transactionBufferPointer,
-                                    36, NULL);
+                                    36, NULL, 32);
                                 transaction_offset_increase(36);
                                 check_transaction_available(8); // update amount
                                 btchip_swap_bytes(
@@ -393,7 +393,7 @@ void transaction_parse(unsigned char parseMode) {
                                 N_btchip.bkp.trustedinput_key,
                                 sizeof(N_btchip.bkp.trustedinput_key),
                                 btchip_context_D.transactionBufferPointer + 2,
-                                trustedInputLength - 8, trustedInput);
+                                trustedInputLength - 8, trustedInput, 32);
                             if (btchip_secure_memcmp(
                                     trustedInput,
                                     btchip_context_D.transactionBufferPointer +
@@ -536,7 +536,7 @@ void transaction_parse(unsigned char parseMode) {
                                     cx_hash(&btchip_context_D
                                                  .transactionHashFull.header,
                                             0, btchip_context_D.inputValue, 8,
-                                            NULL);
+                                            NULL, 32);
                                 }
                             }
                         }
@@ -548,7 +548,7 @@ void transaction_parse(unsigned char parseMode) {
                                          .header,
                                     0,
                                     btchip_context_D.transactionBufferPointer,
-                                    4, NULL);
+                                    4, NULL, 32);
                         }
                         transaction_offset_increase(4);
                         // Move to next input
@@ -589,22 +589,10 @@ void transaction_parse(unsigned char parseMode) {
                             // Flush the cache
                             cx_hash(&btchip_context_D.segwit.hash.hashPrevouts
                                          .header,
-                                    CX_LAST, hashedPrevouts, 0, hashedPrevouts);
-                            cx_sha256_init(
-                                &btchip_context_D.segwit.hash.hashPrevouts);
-                            cx_hash(&btchip_context_D.segwit.hash.hashPrevouts
-                                         .header,
-                                    CX_LAST, hashedPrevouts,
-                                    sizeof(hashedPrevouts), hashedPrevouts);
+                                    CX_LAST, hashedPrevouts, 0, hashedPrevouts, 32);
                             cx_hash(&btchip_context_D.segwit.hash.hashSequence
                                          .header,
-                                    CX_LAST, hashedSequence, 0, hashedSequence);
-                            cx_sha256_init(
-                                &btchip_context_D.segwit.hash.hashSequence);
-                            cx_hash(&btchip_context_D.segwit.hash.hashSequence
-                                         .header,
-                                    CX_LAST, hashedSequence,
-                                    sizeof(hashedSequence), hashedSequence);
+                                    CX_LAST, hashedSequence, 0, hashedSequence, 32);
                             os_memmove(
                                 btchip_context_D.segwit.cache.hashedPrevouts,
                                 hashedPrevouts, sizeof(hashedPrevouts));
@@ -632,7 +620,7 @@ void transaction_parse(unsigned char parseMode) {
                                 btchip_context_D.segwit.cache.hashedOutputs,
                                 sizeof(btchip_context_D.segwit.cache
                                            .hashedOutputs),
-                                NULL);
+                                NULL, 32);
                             btchip_context_D.transactionContext
                                 .transactionState =
                                 BTCHIP_TRANSACTION_SIGN_READY;
