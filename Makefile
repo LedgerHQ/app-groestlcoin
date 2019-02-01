@@ -173,7 +173,7 @@ APP_LOAD_PARAMS += --path $(APP_PATH)
 APP_LOAD_FLAGS=--appFlags 0x50
 else
 ifeq ($(filter clean,$(MAKECMDGOALS)),)
-$(error Unsupported COIN - use bitcoin_testnet, bitcoin, bitcoin_cash, bitcoin_gold, litecoin, dogecoin, dash, zcash, horizen, komodo, stratis, peercoin, posw, pivx, viacoin, vertcoin, stealth, digibyte, qtum, hcash, bitcoin_private, zcoin,  gamecredits, zclassic, groestlcoin, groestlcoin_testnet) 
+$(error Unsupported COIN - use groestlcoin, groestlcoin_testnet) 
 endif
 endif
 
