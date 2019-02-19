@@ -29,7 +29,7 @@ APPVERSION_M=1
 APPVERSION_N=3
 APPVERSION_P=2
 APPVERSION=$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)
-APP_LOAD_FLAGS=--appFlags 0x50 --dep Bitcoin:$(APPVERSION)
+APP_LOAD_FLAGS=--appFlags 0x250 --dep Bitcoin:$(APPVERSION)
 
 # simplify for tests
 ifndef COIN
@@ -163,14 +163,14 @@ DEFINES   += COIN_P2PKH_VERSION=36 COIN_P2SH_VERSION=5 COIN_FAMILY=1 COIN_COINID
 DEFINES_LIB=# we're not using the lib :)
 APPNAME ="Groestlcoin"
 APP_LOAD_PARAMS += --path $(APP_PATH)
-APP_LOAD_FLAGS=--appFlags 0x50
+APP_LOAD_FLAGS=--appFlags 0x250
 else ifeq ($(COIN),groestlcoin_testnet)
 # Groestlcoin testnet
 DEFINES   += COIN_P2PKH_VERSION=111 COIN_P2SH_VERSION=196 COIN_FAMILY=1 COIN_COINID=\"GroestlCoin\" COIN_COINID_HEADER=\"GROESTLCOIN\" COIN_COLOR_HDR=0xFCB653 COIN_COLOR_DB=0xFEDBA9 COIN_COINID_NAME=\"Groestlcoin\" COIN_COINID_SHORT=\"TGRS\" COIN_NATIVE_SEGWIT_PREFIX=\"tgrs\" COIN_KIND=COIN_KIND_GROESTLCOIN COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
 DEFINES_LIB=# we're not using the lib :)
 APPNAME ="Groestlcoin Test"
 APP_LOAD_PARAMS += --path $(APP_PATH)
-APP_LOAD_FLAGS=--appFlags 0x50
+APP_LOAD_FLAGS=--appFlags 0x250
 else
 ifeq ($(filter clean,$(MAKECMDGOALS)),)
 $(error Unsupported COIN - use groestlcoin, groestlcoin_testnet) 
@@ -183,7 +183,11 @@ DEFINES += $(DEFINES_LIB)
 ifeq ($(TARGET_NAME),TARGET_BLUE)
 ICONNAME=blue_app_$(COIN).gif
 else
+	ifeq ($(TARGET_NAME),TARGET_NANOX)
+ICONNAME=balenos_app_$(COIN).gif
+	else
 ICONNAME=nanos_app_$(COIN).gif
+endif
 endif
 
 ################
@@ -212,6 +216,18 @@ DEFINES   += UNUSED\(x\)=\(void\)x
 DEFINES   += APPVERSION=\"$(APPVERSION)\"
 
 #DEFINES += CX_COMPLIANCE_141
+
+ifeq ($(TARGET_NAME),TARGET_NANOX)
+DEFINES       += HAVE_BLE BLE_COMMAND_TIMEOUT_MS=2000
+DEFINES       += HAVE_BLE_APDU # basic ledger apdu transport over BLE
+
+DEFINES       += HAVE_GLO096 HAVE_UX_LEGACY
+DEFINES       += HAVE_BAGL BAGL_WIDTH=128 BAGL_HEIGHT=64
+DEFINES       += HAVE_BAGL_ELLIPSIS # long label truncation feature
+DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_REGULAR_11PX
+DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_EXTRABOLD_11PX
+DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_LIGHT_16PX
+endif
 
 ##############
 # Compiler #
@@ -247,6 +263,11 @@ include $(BOLOS_SDK)/Makefile.glyphs
 ### variables processed by the common makefile.rules of the SDK to grab source files and include dirs
 APP_SOURCE_PATH  += src
 SDK_SOURCE_PATH  += lib_stusb lib_stusb_impl lib_u2f qrcode
+
+ifeq ($(TARGET_NAME),TARGET_NANOX)
+SDK_SOURCE_PATH  += lib_blewbxx lib_blewbxx_impl
+SDK_SOURCE_PATH  += lib_ux
+endif
 
 load: all
 	python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
