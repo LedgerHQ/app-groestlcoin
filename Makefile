@@ -33,7 +33,7 @@ APP_LOAD_FLAGS=--appFlags 0x250 --dep Bitcoin:$(APPVERSION)
 
 # simplify for tests
 ifndef COIN
-COIN=bitcoin
+COIN=groestlcoin
 endif
 
 ifeq ($(COIN),bitcoin_testnet)
@@ -184,7 +184,7 @@ ifeq ($(TARGET_NAME),TARGET_BLUE)
 ICONNAME=blue_app_$(COIN).gif
 else
 	ifeq ($(TARGET_NAME),TARGET_NANOX)
-ICONNAME=balenos_app_$(COIN).gif
+ICONNAME=nanox_app_$(COIN).gif
 	else
 ICONNAME=nanos_app_$(COIN).gif
 endif
