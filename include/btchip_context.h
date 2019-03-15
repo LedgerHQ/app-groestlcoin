@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Blue - Bitcoin Wallet
-*   (c) 2016 Ledger
+*   Ledger App - Bitcoin Wallet
+*   (c) 2016-2019 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@
 
 #define MAX_OUTPUT_TO_CHECK 200
 #define MAX_COIN_ID 13
-#define MAX_SHORT_COIN_ID 5 
+#define MAX_SHORT_COIN_ID 5
 
 #define MAGIC_TRUSTED_INPUT 0x32
 #define MAGIC_DEV_KEY 0x01
@@ -162,9 +162,9 @@ struct btchip_context_s {
     /** Current short Coin ID */
     unsigned char shortCoinId[MAX_SHORT_COIN_ID];
     /** Current Coin ID length */
-    unsigned char coinIdLength;    
+    unsigned char coinIdLength;
     /** Current short Coin ID length */
-    unsigned char shortCoinIdLength;        
+    unsigned char shortCoinIdLength;
 
     /** Non protected transaction context */
 
@@ -233,14 +233,14 @@ struct btchip_context_s {
     unsigned int discardSize;
     unsigned char outputParsingState;
     unsigned char totalOutputAmount[8];
-    unsigned char changeOutputFound;    
+    unsigned char changeOutputFound;
 };
 typedef struct btchip_context_s btchip_context_t;
 
 
 /**
  * Structure to configure the bitcoin application for a given altcoin
- * 
+ *
  */
 typedef enum btchip_coin_flags_e {
     FLAG_PEERCOIN_UNITS=1,

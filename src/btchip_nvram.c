@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Blue - Bitcoin Wallet
-*   (c) 2016 Ledger
+*   Ledger App - Bitcoin Wallet
+*   (c) 2016-2019 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -19,8 +19,5 @@
 
 #include "btchip_public_ram_variables.h"
 
-#if 0
-WIDE btchip_storage_t N_btchip_real;
-#else
-WIDE btchip_storage_t const N_btchip_real;
-#endif
+
+btchip_storage_t const N_btchip_real;

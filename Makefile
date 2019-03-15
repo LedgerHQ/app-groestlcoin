@@ -23,11 +23,11 @@ include $(BOLOS_SDK)/Makefile.defines
 APP_PATH = ""
 # All but bitcoin app use dependency onto the bitcoin app/lib
 DEFINES_LIB = USE_LIB_BITCOIN
-APP_LOAD_PARAMS= --curve secp256k1 $(COMMON_LOAD_PARAMS) 
+APP_LOAD_PARAMS= --curve secp256k1 $(COMMON_LOAD_PARAMS)
 
 APPVERSION_M=1
 APPVERSION_N=3
-APPVERSION_P=2
+APPVERSION_P=3
 APPVERSION=$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)
 APP_LOAD_FLAGS=--appFlags 0x250 --dep Bitcoin:$(APPVERSION)
 
@@ -48,15 +48,15 @@ DEFINES   += COIN_P2PKH_VERSION=0 COIN_P2SH_VERSION=5 COIN_FAMILY=1 COIN_COINID=
 DEFINES_LIB=# we're not using the lib :)
 APPNAME ="Bitcoin"
 APP_LOAD_PARAMS += --path $(APP_PATH)
-#LIB and global pin and 
-APP_LOAD_FLAGS=--appFlags 0x850
+#LIB and global pin and
+APP_LOAD_FLAGS=--appFlags 0xa50
 else ifeq ($(COIN),bitcoin_cash)
 # Bitcoin cash
 DEFINES   += COIN_P2PKH_VERSION=0 COIN_P2SH_VERSION=5 COIN_FAMILY=1 COIN_COINID=\"Bitcoin\" COIN_COINID_HEADER=\"BITCOINCASH\" COIN_COLOR_HDR=0x85bb65 COIN_COLOR_DB=0xc2ddb2 COIN_COINID_NAME=\"BitcoinCash\" COIN_COINID_SHORT=\"BCH\" COIN_KIND=COIN_KIND_BITCOIN_CASH COIN_FORKID=0
 APPNAME ="Bitcoin Cash"
 APP_LOAD_PARAMS += --path $(APP_PATH)
 else ifeq ($(COIN),bitcoin_gold)
-# Bitcoin Gold 
+# Bitcoin Gold
 DEFINES   += COIN_P2PKH_VERSION=38 COIN_P2SH_VERSION=23 COIN_FAMILY=1 COIN_COINID=\"Bitcoin\\x20Gold\" COIN_COINID_HEADER=\"BITCOINGOLD\" COIN_COLOR_HDR=0x85bb65 COIN_COLOR_DB=0xc2ddb2 COIN_COINID_NAME=\"BitcoinGold\" COIN_COINID_SHORT=\"BTG\" COIN_KIND=COIN_KIND_BITCOIN_GOLD COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT COIN_FORKID=79
 APPNAME ="Bitcoin Gold"
 APP_LOAD_PARAMS += --path $(APP_PATH)
@@ -91,7 +91,7 @@ DEFINES   += COIN_P2PKH_VERSION=60 COIN_P2SH_VERSION=85 COIN_FAMILY=1 COIN_COINI
 APPNAME ="Komodo"
 APP_LOAD_PARAMS += --path $(APP_PATH)
 else ifeq ($(COIN),stratis)
-# Stratis 
+# Stratis
 DEFINES   += COIN_P2PKH_VERSION=63 COIN_P2SH_VERSION=125 COIN_FAMILY=2 COIN_COINID=\"Stratis\" COIN_COINID_HEADER=\"STRATIS\" COIN_COLOR_HDR=0x3790CA COIN_COLOR_DB=0x9BC8E5 COIN_COINID_NAME=\"Stratis\" COIN_COINID_SHORT=\"STRAT\" COIN_KIND=COIN_KIND_STRATIS COIN_FLAGS=FLAG_PEERCOIN_SUPPORT
 APPNAME ="Stratis"
 APP_LOAD_PARAMS += --path $(APP_PATH)
@@ -173,7 +173,7 @@ APP_LOAD_PARAMS += --path $(APP_PATH)
 APP_LOAD_FLAGS=--appFlags 0x250
 else
 ifeq ($(filter clean,$(MAKECMDGOALS)),)
-$(error Unsupported COIN - use groestlcoin, groestlcoin_testnet) 
+$(error Unsupported COIN - use groestlcoin, groestlcoin_testnet)
 endif
 endif
 
@@ -209,13 +209,15 @@ DEFINES   += LEDGER_MAJOR_VERSION=$(APPVERSION_M) LEDGER_MINOR_VERSION=$(APPVERS
 # U2F
 DEFINES   += HAVE_U2F HAVE_IO_U2F
 DEFINES   += U2F_PROXY_MAGIC=\"BTC\"
-DEFINES   += USB_SEGMENT_SIZE=64 
+DEFINES   += USB_SEGMENT_SIZE=64
 DEFINES   += BLE_SEGMENT_SIZE=32 #max MTU, min 20
+
+WEBUSB_URL     = www.ledgerwallet.com
+DEFINES       += HAVE_WEBUSB WEBUSB_URL_SIZE_B=$(shell echo -n $(WEBUSB_URL) | wc -c) WEBUSB_URL=$(shell echo -n $(WEBUSB_URL) | sed -e "s/./\\\'\0\\\',/g")
 
 DEFINES   += UNUSED\(x\)=\(void\)x
 DEFINES   += APPVERSION=\"$(APPVERSION)\"
 
-#DEFINES += CX_COMPLIANCE_141
 
 ifeq ($(TARGET_NAME),TARGET_NANOX)
 DEFINES       += HAVE_BLE BLE_COMMAND_TIMEOUT_MS=2000
@@ -246,7 +248,7 @@ ifeq ($(GCCPATH),)
 $(info GCCPATH is not set: arm-none-eabi-* will be used from PATH)
 endif
 
-CC       := $(CLANGPATH)clang 
+CC       := $(CLANGPATH)clang
 
 #CFLAGS   += -O0
 CFLAGS   += -O3 -Os
@@ -255,7 +257,7 @@ AS     := $(GCCPATH)arm-none-eabi-gcc
 
 LD       := $(GCCPATH)arm-none-eabi-gcc
 LDFLAGS  += -O3 -Os
-LDLIBS   += -lm -lgcc -lc 
+LDLIBS   += -lm -lgcc -lc
 
 # import rules to compile glyphs(/pone)
 include $(BOLOS_SDK)/Makefile.glyphs

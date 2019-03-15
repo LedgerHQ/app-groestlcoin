@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Blue - Bitcoin Wallet
-*   (c) 2016 Ledger
+*   Ledger App - Bitcoin Wallet
+*   (c) 2016-2019 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -59,12 +59,11 @@ unsigned short btchip_apdu_hash_sign() {
             btchip_set_check_internal_structure_integrity(0);
             if (btchip_context_D.transactionContext.transactionState !=
                 BTCHIP_TRANSACTION_SIGN_READY) {
-                L_DEBUG_APP(
-                    ("Invalid transaction state %d\n",
-                     btchip_context_D.transactionContext.transactionState));
+                PRINTF("Invalid transaction state %d\n", btchip_context_D.transactionContext.transactionState);
                 sw = BTCHIP_SW_CONDITIONS_OF_USE_NOT_SATISFIED;
                 goto discardTransaction;
             }
+
 
             // Read parameters
             if (G_io_apdu_buffer[ISO_OFFSET_CDATA] > MAX_BIP32_PATH) {
@@ -87,7 +86,7 @@ unsigned short btchip_apdu_hash_sign() {
                   BTCHIP_OPTION_FREE_SIGHASHTYPE) == 0)) {
                 // if bitcoin cash OR forkid is set, then use the fork id
                 if (G_coin_config->kind == COIN_KIND_BITCOIN_CASH ||
-                    G_coin_config->forkid) {
+                    (G_coin_config->forkid)) {
 #define SIGHASH_FORKID 0x40
                     if (sighashType != (SIGHASH_ALL | SIGHASH_FORKID)) {
                         sw = BTCHIP_SW_INCORRECT_DATA;
@@ -119,12 +118,11 @@ unsigned short btchip_apdu_hash_sign() {
 
             btchip_write_u32_le(dataBuffer, lockTime);
             btchip_write_u32_le(dataBuffer + 4, sighashType);
-            L_DEBUG_BUF(
-                ("Finalize hash with\n", dataBuffer, sizeof(dataBuffer)));
+                PRINTF("Finalize hash with\n%.*H\n", sizeof(dataBuffer), dataBuffer);
 
             cx_hash(&btchip_context_D.transactionHashFull.header, CX_LAST,
                     dataBuffer, sizeof(dataBuffer), hash, 32);
-            L_DEBUG_BUF(("hash\n", hash, sizeof(hash)));
+                PRINTF("Hash1\n%.*H\n", sizeof(hash), hash);
 
 
             // Sign

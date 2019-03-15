@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Blue - Bitcoin Wallet
-*   (c) 2016 Ledger
+*   Ledger App - Bitcoin Wallet
+*   (c) 2016-2019 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -89,7 +89,7 @@ unsigned short btchip_apdu_sign_message_internal() {
                     os_memset(&btchip_context_D.transactionSummary, 0,
                               sizeof(btchip_transaction_summary_t));
                     if (G_io_apdu_buffer[offset] > MAX_BIP32_PATH) {
-                        L_DEBUG_APP(("Invalid path\n"));
+                        PRINTF("Invalid path\n");
                         sw = BTCHIP_SW_INCORRECT_DATA;
                         CLOSE_TRY;
                         goto discard;
@@ -114,7 +114,7 @@ unsigned short btchip_apdu_sign_message_internal() {
                     }
                     if (btchip_context_D.transactionSummary.messageLength ==
                         0) {
-                        L_DEBUG_APP(("Null message length\n"));
+                        PRINTF("Null message length\n");
                         sw = BTCHIP_SW_INCORRECT_DATA;
                         CLOSE_TRY;
                         goto discard;
@@ -152,7 +152,7 @@ unsigned short btchip_apdu_sign_message_internal() {
                     chunkLength = apduLength - (offset - ISO_OFFSET_CDATA);
                     if ((btchip_context_D.hashedMessageLength + chunkLength) >
                         btchip_context_D.transactionSummary.messageLength) {
-                        L_DEBUG_APP(("Invalid data length\n"));
+                        PRINTF("Invalid data length\n");
                         sw = BTCHIP_SW_INCORRECT_DATA;
                         CLOSE_TRY;
                         goto discard;
@@ -174,7 +174,7 @@ unsigned short btchip_apdu_sign_message_internal() {
                 } else {
                     if ((btchip_context_D.hashedMessageLength + apduLength) >
                         btchip_context_D.transactionSummary.messageLength) {
-                        L_DEBUG_APP(("Invalid data length\n"));
+                        PRINTF("Invalid data length\n");
                         sw = BTCHIP_SW_INCORRECT_DATA;
                         CLOSE_TRY;
                         goto discard;
@@ -198,7 +198,7 @@ unsigned short btchip_apdu_sign_message_internal() {
                 if ((btchip_context_D.transactionSummary.messageLength == 0) ||
                     (btchip_context_D.hashedMessageLength !=
                      btchip_context_D.transactionSummary.messageLength)) {
-                    L_DEBUG_APP(("Invalid length to sign\n"));
+                    PRINTF("Invalid length to sign\n");
                     sw = BTCHIP_SW_INCORRECT_DATA;
                     CLOSE_TRY;
                     goto discard;
@@ -243,10 +243,6 @@ unsigned short btchip_compute_hash() {
         TRY {
             cx_hash(&btchip_context_D.transactionHashFull.header, CX_LAST, NULL,
                     0, hash, 32);
-            /*
-            cx_groestl_init(&btchip_context_D.transactionHashFull, 512);
-            cx_hash(&btchip_context_D.transactionHashFull.header, CX_LAST, hash,
-                    64, hash, 64);*/
             btchip_private_derive_keypair(
                 btchip_context_D.transactionSummary.summarydata.keyPath, 0,
                 NULL);

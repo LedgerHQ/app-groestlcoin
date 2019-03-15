@@ -1,6 +1,6 @@
 /*******************************************************************************
-*   Ledger Blue - Bitcoin Wallet
-*   (c) 2016 Ledger
+*   Ledger App - Bitcoin Wallet
+*   (c) 2016-2019 Ledger
 *
 *  Licensed under the Apache License, Version 2.0 (the "License");
 *  you may not use this file except in compliance with the License.
@@ -74,8 +74,8 @@ typedef struct btchip_storage_s {
 
 // the global nvram memory variable
 #if 0
-extern WIDE btchip_storage_t N_btchip_real;
-#define N_btchip (*(WIDE btchip_storage_t *)PIC(&N_btchip_real))
+extern btchip_storage_t N_btchip_real;
+#define N_btchip (*(btchip_storage_t *)PIC(&N_btchip_real))
 #else
 extern btchip_storage_t const N_btchip_real;
 #define N_btchip (*(volatile btchip_storage_t *)PIC(&N_btchip_real))
