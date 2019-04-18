@@ -487,7 +487,7 @@ void transaction_parse(unsigned char parseMode) {
                             } else {
                                 if (btchip_context_D.segwitParsedOnce) {
                                     // Append the saved value
-                                                                        PRINTF("SEGWIT Add value\n%.*H\n",8,btchip_context_D.inputValue);
+                                    PRINTF("SEGWIT Add value\n%.*H\n",8,btchip_context_D.inputValue);
                                     cx_hash(&btchip_context_D
                                                  .transactionHashFull.header,
                                             0, btchip_context_D.inputValue, 8,
