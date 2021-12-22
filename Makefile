@@ -232,6 +232,12 @@ DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_LIGHT_16PX
 DEFINES		  += HAVE_UX_FLOW
 endif
 
+# GROESTL addition.
+DEFINES       += HAVE_GROESTL
+INCLUDES_PATH += $(BOLOS_SDK)/lib_cxng/src
+SOURCE_PATH   += $(BOLOS_SDK)/lib_cxng/src/cx_Groestl-ref.c
+SOURCE_PATH   += $(BOLOS_SDK)/lib_cxng/src/cx_utils.c
+
 # Enabling debug PRINTF
 DEBUG = 0
 ifneq ($(DEBUG),0)
