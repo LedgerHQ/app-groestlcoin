@@ -685,7 +685,7 @@ void transaction_parse(unsigned char parseMode) {
                                 cx_hash(&btchip_context_D.transactionHashFull
                                          .sha256.header,
                                     CX_LAST, hashedSequence,
-                                    sizeof(hashedSequence), hashedSequence, 32);
+                                    0, hashedSequence, 32);
 
                             }
                             os_memmove(

@@ -246,7 +246,7 @@ unsigned short btchip_compute_hash() {
     btchip_context_D.outLength = 0;
     BEGIN_TRY {
         TRY {
-            cx_hash(&btchip_context_D.transactionHashFull.sha256.header, CX_LAST, hash,
+            cx_hash(&btchip_context_D.transactionHashFull.sha256.header, CX_LAST, NULL,
                     0, hash, 32);
             btchip_private_derive_keypair(
                 btchip_context_D.transactionSummary.keyPath, 0,
