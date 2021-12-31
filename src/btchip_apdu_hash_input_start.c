@@ -122,7 +122,7 @@ unsigned short btchip_apdu_hash_input_start() {
     }
 
     // In segwit mode, warn user one time only to update its client wallet...
-    if (btchip_context_D.usingSegwit
+    /* if (btchip_context_D.usingSegwit
         && !btchip_context_D.segwitWarningSeen
         &&(G_io_apdu_buffer[ISO_OFFSET_P1] == P1_NEXT)
         && (G_io_apdu_buffer[ISO_OFFSET_P2] != P2_CONTINUE)
@@ -131,14 +131,14 @@ unsigned short btchip_apdu_hash_input_start() {
         && !IS_INPUT_TRUSTED())
     {
         if(btchip_context_D.called_from_swap){
-            /* There is no point in displaying a warning when the app is signing
-            in silent mode, as its UI is hidden behind the exchange app*/
+            // There is no point in displaying a warning when the app is signing
+            // in silent mode, as its UI is hidden behind the exchange app
             return BTCHIP_SW_SWAP_WITHOUT_TRUSTED_INPUTS;
         }
         btchip_context_D.segwitWarningSeen = 1;
         btchip_context_D.io_flags |= IO_ASYNCH_REPLY;
         btchip_bagl_request_segwit_input_approval();
-    }
+    } */
 
     // Start parsing of the 1st chunk
     btchip_context_D.transactionBufferPointer =
