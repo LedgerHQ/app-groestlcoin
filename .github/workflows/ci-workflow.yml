@@ -1,0 +1,33 @@
+name: CI
+
+on: [push, pull_request]
+
+jobs:
+  job_build:
+    name: Compilation
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/ledgerhq/ledger-app-builder/ledger-app-builder:latest
+
+    steps:
+      - name: Clone
+        uses: actions/checkout@v2
+
+      - name: Build
+        run: |
+          make && mv bin/ groestlcoin-bin/
+          make clean
+          make COIN=groestlcoin_testnet && mv bin/ groestlcoin-testnet-bin/
+
+      - name: Upload Groestlcoin app binary
+        uses: actions/upload-artifact@v2
+        with:
+          name: groestlcoin-app
+          path: groestlcoin-bin
+
+      - name: Upload Groestlcoin Testnet app binary
+        uses: actions/upload-artifact@v2
+        with:
+          name: groestlcoin-testnet-app
+          path: groestlcoin-testnet-bin
