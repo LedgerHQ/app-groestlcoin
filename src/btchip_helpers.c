@@ -355,7 +355,7 @@ unsigned char bip44_derivation_guard(unsigned char *bip32Path, bool is_change_pa
     }
 
     // If the path length is not compliant with BIP44 or if the purpose don't match regular usage, return a warning
-    if(path_len != BIP44_PATH_LEN ||
+    /* if(path_len != BIP44_PATH_LEN ||
        ((bip32PathInt[BIP44_PURPOSE_OFFSET]^0x80000000) != 44 &&
        (bip32PathInt[BIP44_PURPOSE_OFFSET]^0x80000000) != 49 &&
        (bip32PathInt[BIP44_PURPOSE_OFFSET]^0x80000000) != 84)) {
@@ -374,7 +374,7 @@ unsigned char bip44_derivation_guard(unsigned char *bip32Path, bool is_change_pa
        bip32PathInt[BIP44_CHANGE_OFFSET] != is_change_path?1:0 ||
        bip32PathInt[BIP44_ADDRESS_INDEX_OFFSET] > MAX_BIP44_ADDRESS_INDEX_RECOMMENDED) {
         return 1;
-    }
+    } */
 
     return 0;
 }
@@ -407,7 +407,7 @@ unsigned char enforce_bip44_coin_type(unsigned char *bip32Path, bool for_pubkey)
     }
 
     // Path is not compliant with BIP 44 or derivatives - valid if not signing
-    if (!(((bip32PathInt[BIP44_PURPOSE_OFFSET]^0x80000000) == 44 ||
+    /* if (!(((bip32PathInt[BIP44_PURPOSE_OFFSET]^0x80000000) == 44 ||
        (bip32PathInt[BIP44_PURPOSE_OFFSET]^0x80000000) == 49 ||
        (bip32PathInt[BIP44_PURPOSE_OFFSET]^0x80000000) == 84))) {
         return for_pubkey;
@@ -417,7 +417,7 @@ unsigned char enforce_bip44_coin_type(unsigned char *bip32Path, bool for_pubkey)
         ((bip32PathInt[BIP44_COIN_TYPE_OFFSET]^0x80000000) == G_coin_config->bip44_coin_type2)) {
         // Valid BIP 44 path
         return 1;
-    }
+    } */
     // Everything else needs a user validation
     return 0;
 }

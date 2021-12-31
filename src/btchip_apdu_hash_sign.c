@@ -136,14 +136,14 @@ unsigned short btchip_apdu_hash_sign() {
             }
 
             // Check if the path needs to be enforced
-            if (!enforce_bip44_coin_type(btchip_context_D.transactionSummary.keyPath, false)) {
+            /* if (!enforce_bip44_coin_type(btchip_context_D.transactionSummary.keyPath, false)) {
                 btchip_context_D.io_flags |= IO_ASYNCH_REPLY;
                 btchip_bagl_request_sign_path_approval(btchip_context_D.transactionSummary.keyPath);
             }
-            else {
+            else { */
                 // Sign immediately
                 btchip_bagl_user_action_signtx(1, 1);
-            }
+            // }
             sw = BTCHIP_SW_OK;
             if (btchip_context_D.called_from_swap) {
                 // if we signed all outputs we should exit,

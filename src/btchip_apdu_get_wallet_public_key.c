@@ -172,9 +172,9 @@ unsigned short btchip_apdu_get_wallet_public_key() {
 
     // privacy : force display the address if the path isn't standard
     // and could reveal another fork holdings according to BIP 44 rules
-    if (!display && !bip44_enforced) {
+    /*if (!display && !bip44_enforced) {
         display = true;
-    }
+    }*/
 
     if (display) {
         if (keyLength > 50) {
