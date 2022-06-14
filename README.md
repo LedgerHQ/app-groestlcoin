@@ -1,6 +1,7 @@
 # ledger-app-grs
-Groestlcoin wallet application for Ledger Nano S up to version 1.6.5.
-Groestlcoin wallet application for Ledger Nano S Plus and Ledger Nano X resides in this [branch](https://github.com/LedgerHQ/app-groestlcoin/tree/pr-groestl-in-sdk) untill groestl algo is also moved in the [Nano S SDK](https://github.com/LedgerHQ/nanos-secure-sdk/)
+Groestlcoin wallet application for Ledger Nano S Plus and Ledger Nano X up to version 1.6.6.
+
+Groestlcoin wallet application for Ledger Nano S resides on the [master branch](https://github.com/LedgerHQ/app-groestlcoin/) untill groestl algo is also moved in the [Nano S SDK](https://github.com/LedgerHQ/nanos-secure-sdk/)
 
 Versions starting from 2.0.0 will be at https://github.com/LedgerHQ/app-groestlcoin-new.
 

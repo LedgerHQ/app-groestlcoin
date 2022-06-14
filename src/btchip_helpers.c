@@ -18,6 +18,10 @@
 #include "btchip_internal.h"
 #include "btchip_apdu_constants.h"
 
+#ifdef HAVE_GROESTL
+union cx_u G_cx;
+#endif // HAVE_GROESTL
+
 const unsigned char TRANSACTION_OUTPUT_SCRIPT_PRE[] = {
     0x19, 0x76, 0xA9,
     0x14}; // script length, OP_DUP, OP_HASH160, address length
@@ -220,9 +224,9 @@ void btchip_compute_checksum(unsigned char* in, unsigned short inlen, unsigned c
     unsigned char checksumBuffer[64];
     cx_groestl_t hash;
     cx_groestl_init(&hash, 512);
-    cx_hash(&hash.header, CX_LAST, in, inlen, checksumBuffer, 64);
+    cx_groestl(&hash, CX_LAST, in, inlen, checksumBuffer, 64);
     cx_groestl_init(&hash, 512);
-    cx_hash(&hash.header, CX_LAST, checksumBuffer, 64, checksumBuffer, 64);
+    cx_groestl(&hash, CX_LAST, checksumBuffer, 64, checksumBuffer, 64);
 
     PRINTF("Checksum\n%.*H\n",4,checksumBuffer);
     os_memmove(output, checksumBuffer, 4);
@@ -282,9 +286,9 @@ unsigned short btchip_decode_base58_address(unsigned char *in,
 
     // Compute hash to verify address
     cx_groestl_init(&hash, 512);
-    cx_hash(&hash.header, CX_LAST, out, outlen - 4, hashBuffer, 64);
+    cx_groestl(&hash, CX_LAST, out, outlen - 4, hashBuffer, 64);
     cx_groestl_init(&hash, 512);
-    cx_hash(&hash.header, CX_LAST, hashBuffer, 64, hashBuffer, 64);
+    cx_groestl(&hash, CX_LAST, hashBuffer, 64, hashBuffer, 64);
 
     if (os_memcmp(out + outlen - 4, hashBuffer, 4)) {
         PRINTF("Hash checksum mismatch\n%.*H\n",sizeof(hashBuffer),hashBuffer);

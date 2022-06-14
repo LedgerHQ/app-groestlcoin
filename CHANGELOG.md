@@ -5,10 +5,10 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](http://keepachangelog.com/)
 and this project adheres to [Semantic Versioning](http://semver.org/).
 
-## 1.6.5 - 21-06-2022
+## 1.6.6 - 21-06-2022
 
 - Backport all changes from app-bitcoin
-## [1.6.5](https://github.com/LedgerHQ/app-groestlcoin/pull/1)
+## [1.6.6](https://github.com/LedgerHQ/app-groestlcoin/pull/3)
 
 ## 1.3.9 - 22-12-2021
 
