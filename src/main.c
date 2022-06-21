@@ -1,1355 +1,346 @@
-/*******************************************************************************
- *   Ledger App - Bitcoin Wallet
- *   (c) 2016-2019 Ledger
- *
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
- *
- *      http://www.apache.org/licenses/LICENSE-2.0
- *
- *  Unless required by applicable law or agreed to in writing, software
- *  distributed under the License is distributed on an "AS IS" BASIS,
- *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
- *  See the License for the specific language governing permissions and
- *  limitations under the License.
- ********************************************************************************/
-
-#include "os.h"
-#include "cx.h"
-
-#include "string.h"
-
-#include "btchip_internal.h"
-
-#include "btchip_bagl_extensions.h"
-
-#include "segwit_addr.h"
-#include "cashaddr.h"
-
-#include "ux.h"
-#include "btchip_display_variables.h"
-#include "swap_lib_calls.h"
-
-#include "swap_lib_calls.h"
-#include "handle_swap_sign_transaction.h"
-#include "handle_get_printable_amount.h"
-#include "handle_check_address.h"
-
-#define __NAME3(a, b, c) a##b##c
-#define NAME3(a, b, c) __NAME3(a, b, c)
-
-bagl_element_t tmp_element;
-
-unsigned char G_io_seproxyhal_spi_buffer[IO_SEPROXYHAL_BUFFER_SIZE_B];
-
-void ui_idle(void);
-
-ux_state_t G_ux;
-bolos_ux_params_t G_ux_params;
-
-unsigned int io_seproxyhal_touch_verify_cancel(const bagl_element_t *e) {
-    // user denied the transaction, tell the USB side
-    if (!btchip_bagl_user_action(0)) {
-        // redraw ui
-        ui_idle();
-    }
-    return 0; // DO NOT REDRAW THE BUTTON
-}
-
-unsigned int io_seproxyhal_touch_verify_ok(const bagl_element_t *e) {
-    // user accepted the transaction, tell the USB side
-    if (!btchip_bagl_user_action(1)) {
-        // redraw ui
-        ui_idle();
-    }
-    return 0; // DO NOT REDRAW THE BUTTON
-}
-
-unsigned int
-io_seproxyhal_touch_message_signature_verify_cancel(const bagl_element_t *e) {
-    // user denied the transaction, tell the USB side
-    btchip_bagl_user_action_message_signing(0);
-    // redraw ui
-    ui_idle();
-    return 0; // DO NOT REDRAW THE BUTTON
-}
-
-unsigned int
-io_seproxyhal_touch_message_signature_verify_ok(const bagl_element_t *e) {
-    // user accepted the transaction, tell the USB side
-    btchip_bagl_user_action_message_signing(1);
-    // redraw ui
-    ui_idle();
-    return 0; // DO NOT REDRAW THE BUTTON
-}
-
-unsigned int io_seproxyhal_touch_display_cancel(const bagl_element_t *e) {
-    // user denied the transaction, tell the USB side
-    btchip_bagl_user_action_display(0);
-    // redraw ui
-    ui_idle();
-    return 0; // DO NOT REDRAW THE BUTTON
-}
-
-unsigned int io_seproxyhal_touch_display_ok(const bagl_element_t *e) {
-    // user accepted the transaction, tell the USB side
-    btchip_bagl_user_action_display(1);
-    // redraw ui
-    ui_idle();
-    return 0; // DO NOT REDRAW THE BUTTON
-}
-
-unsigned int io_seproxyhal_touch_sign_cancel(const bagl_element_t *e) {
-    // user denied the transaction, tell the USB side
-    btchip_bagl_user_action_signtx(0, 0);
-    // redraw ui
-    ui_idle();
-    return 0; // DO NOT REDRAW THE BUTTON
-}
-
-unsigned int io_seproxyhal_touch_sign_ok(const bagl_element_t *e) {
-    // user accepted the transaction, tell the USB side
-    btchip_bagl_user_action_signtx(1, 0);
-    // redraw ui
-    ui_idle();
-    return 0; // DO NOT REDRAW THE BUTTON
-}
-
-
-unsigned int io_seproxyhal_touch_display_token_cancel(const bagl_element_t *e) {
-    // revoke previous valid token if there was one
-    btchip_context_D.has_valid_token = false;
-    // user denied the token, tell the USB side
-    btchip_bagl_user_action_display(0);
-    // redraw ui
-    ui_idle();
-    return 0; // DO NOT REDRAW THE BUTTON
-}
-
-unsigned int io_seproxyhal_touch_display_token_ok(const bagl_element_t *e) {
-    // Set the valid token flag
-    btchip_context_D.has_valid_token = true;
-    // user approved the token, tell the USB side
-    btchip_bagl_user_action_display(1);
-    // redraw ui
-    ui_idle();
-    return 0; // DO NOT REDRAW THE BUTTON
-}
-
-const char* settings_submenu_getter(unsigned int idx);
-void settings_submenu_selector(unsigned int idx);
-
-
-void settings_pubkey_export_change(unsigned int enabled) {
-    nvm_write((void *)&N_btchip.pubKeyRequestRestriction, &enabled, 1);
-    ui_idle();
-}
-//////////////////////////////////////////////////////////////////////////////////////
-// Public keys export submenu:
-
-const char* const settings_pubkey_export_getter_values[] = {
-  "Auto Approval",
-  "Manual Approval",
-  "Back"
-};
-
-const char* settings_pubkey_export_getter(unsigned int idx) {
-  if (idx < ARRAYLEN(settings_pubkey_export_getter_values)) {
-    return settings_pubkey_export_getter_values[idx];
-  }
-  return NULL;
-}
-
-void settings_pubkey_export_selector(unsigned int idx) {
-  switch(idx) {
-    case 0:
-      settings_pubkey_export_change(0);
-      break;
-    case 1:
-      settings_pubkey_export_change(1);
-      break;
-    default:
-      ux_menulist_init(0, settings_submenu_getter, settings_submenu_selector);
-  }
-}
-
-//////////////////////////////////////////////////////////////////////////////////////
-// Settings menu:
-
-const char* const settings_submenu_getter_values[] = {
-  "Public keys export",
-  "Back",
-};
-
-const char* settings_submenu_getter(unsigned int idx) {
-  if (idx < ARRAYLEN(settings_submenu_getter_values)) {
-    return settings_submenu_getter_values[idx];
-  }
-  return NULL;
-}
-
-void settings_submenu_selector(unsigned int idx) {
-  switch(idx) {
-    case 0:
-      ux_menulist_init_select(0, settings_pubkey_export_getter, settings_pubkey_export_selector, N_btchip.pubKeyRequestRestriction);
-      break;
-    default:
-      ui_idle();
-  }
-}
-
-//////////////////////////////////////////////////////////////////////
-UX_STEP_NOCB(
-    ux_idle_flow_1_step,
-    nn,
-    {
-      "Application",
-      "is ready",
-    });
-UX_STEP_CB(
-    ux_idle_flow_2_step,
-    pb,
-    ux_menulist_init(0, settings_submenu_getter, settings_submenu_selector),
-    {
-      &C_icon_coggle,
-      "Settings",
-    });
-UX_STEP_NOCB(
-    ux_idle_flow_3_step,
-    bn,
-    {
-      "Version",
-      APPVERSION,
-    });
-UX_STEP_CB(
-    ux_idle_flow_4_step,
-    pb,
-    os_sched_exit(-1),
-    {
-      &C_icon_dashboard_x,
-      "Quit",
-    });
-UX_FLOW(ux_idle_flow,
-  &ux_idle_flow_1_step,
-  &ux_idle_flow_2_step,
-  &ux_idle_flow_3_step,
-  &ux_idle_flow_4_step,
-  FLOW_LOOP
-);
-
-//////////////////////////////////////////////////////////////////////
-UX_STEP_NOCB(
-    ux_sign_flow_1_step,
-    pnn,
-    {
-      &C_icon_certificate,
-      "Sign",
-      "message",
-    });
-UX_STEP_NOCB(
-    ux_sign_flow_2_step,
-    bnnn_paging,
-    {
-      .title = "Message hash",
-      .text = vars.tmp.fullAddress,
-    });
-UX_STEP_CB(
-    ux_sign_flow_3_step,
-    pbb,
-    io_seproxyhal_touch_message_signature_verify_ok(NULL),
-    {
-      &C_icon_validate_14,
-      "Sign",
-      "message",
-    });
-UX_STEP_CB(
-    ux_sign_flow_4_step,
-    pbb,
-    io_seproxyhal_touch_message_signature_verify_cancel(NULL),
-    {
-      &C_icon_crossmark,
-      "Cancel",
-      "signature",
-    });
-
-UX_FLOW(ux_sign_flow,
-  &ux_sign_flow_1_step,
-  &ux_sign_flow_2_step,
-  &ux_sign_flow_3_step,
-  &ux_sign_flow_4_step
-);
-
-//////////////////////////////////////////////////////////////////////
-
-UX_STEP_NOCB(ux_confirm_full_flow_1_step,
-    pnn,
-    {
-      &C_icon_eye,
-      "Review",
-      "transaction",
-    });
-UX_STEP_NOCB(
-    ux_confirm_full_flow_2_step,
-    bnnn_paging,
-    {
-      .title = "Amount",
-      .text = vars.tmp.fullAmount
-    });
-UX_STEP_NOCB(
-    ux_confirm_full_flow_3_step,
-    bnnn_paging,
-    {
-      .title = "Address",
-      .text = vars.tmp.fullAddress,
-    });
-UX_STEP_NOCB(
-    ux_confirm_full_flow_4_step,
-    bnnn_paging,
-    {
-      .title = "Fees",
-      .text = vars.tmp.feesAmount,
-    });
-UX_STEP_CB(
-    ux_confirm_full_flow_5_step,
-    pbb,
-    io_seproxyhal_touch_verify_ok(NULL),
-    {
-      &C_icon_validate_14,
-      "Accept",
-      "and send",
-    });
-UX_STEP_CB(
-    ux_confirm_full_flow_6_step,
-    pb,
-    io_seproxyhal_touch_verify_cancel(NULL),
-    {
-      &C_icon_crossmark,
-      "Reject",
-    });
-// confirm_full: confirm transaction / Amount: fullAmount / Address: fullAddress / Fees: feesAmount
-UX_FLOW(ux_confirm_full_flow,
-  &ux_confirm_full_flow_1_step,
-  &ux_confirm_full_flow_2_step,
-  &ux_confirm_full_flow_3_step,
-  &ux_confirm_full_flow_4_step,
-  &ux_confirm_full_flow_5_step,
-  &ux_confirm_full_flow_6_step
-);
-
-//////////////////////////////////////////////////////////////////////
-
-UX_STEP_NOCB(
-    ux_confirm_single_flow_1_step,
-    pnn,
-    {
-      &C_icon_eye,
-      "Review",
-      vars.tmp.feesAmount, // output #
-    });
-UX_STEP_NOCB(
-    ux_confirm_single_flow_2_step,
-    bnnn_paging,
-    {
-      .title = "Amount",
-      .text = vars.tmp.fullAmount,
-    });
-UX_STEP_NOCB(
-    ux_confirm_single_flow_3_step,
-    bnnn_paging,
-    {
-      .title = "Address",
-      .text = vars.tmp.fullAddress,
-    });
-UX_STEP_CB(
-    ux_confirm_single_flow_5_step,
-    pb,
-    io_seproxyhal_touch_verify_ok(NULL),
-    {
-      &C_icon_validate_14,
-      "Accept",
-    });
-UX_STEP_CB(
-    ux_confirm_single_flow_6_step,
-    pb,
-    io_seproxyhal_touch_verify_cancel(NULL),
-    {
-      &C_icon_crossmark,
-      "Reject",
-    });
-// confirm_single: confirm output #x(feesAmount) / Amount: fullAmount / Address: fullAddress
-UX_FLOW(ux_confirm_single_flow,
-  &ux_confirm_single_flow_1_step,
-  &ux_confirm_single_flow_2_step,
-  &ux_confirm_single_flow_3_step,
-  &ux_confirm_single_flow_5_step,
-  &ux_confirm_single_flow_6_step
-);
-
-//////////////////////////////////////////////////////////////////////
-
-UX_STEP_NOCB(
-    ux_finalize_flow_1_step,
-    pnn,
-    {
-      &C_icon_eye,
-      "Confirm",
-      "transaction"
-    });
-UX_STEP_NOCB(
-    ux_finalize_flow_4_step,
-    bnnn_paging,
-    {
-      .title = "Fees",
-      .text = vars.tmp.feesAmount,
-    });
-UX_STEP_CB(
-    ux_finalize_flow_5_step,
-    pbb,
-    io_seproxyhal_touch_verify_ok(NULL),
-    {
-      &C_icon_validate_14,
-      "Accept",
-      "and send"
-    });
-UX_STEP_CB(
-    ux_finalize_flow_6_step,
-    pb,
-    io_seproxyhal_touch_verify_cancel(NULL),
-    {
-      &C_icon_crossmark,
-      "Reject",
-    });
-// finalize: confirm transaction / Fees: feesAmount
-UX_FLOW(ux_finalize_flow,
-  &ux_finalize_flow_1_step,
-  &ux_finalize_flow_4_step,
-  &ux_finalize_flow_5_step,
-  &ux_finalize_flow_6_step
-);
-
-//////////////////////////////////////////////////////////////////////
-UX_STEP_NOCB(
-    ux_display_public_flow_1_step,
-    pnn,
-    {
-      &C_icon_warning,
-      "The derivation",
-      "path is unusual!",
-    });
-UX_STEP_NOCB(
-    ux_display_public_flow_2_step,
-    bnnn_paging,
-    {
-      .title = "Derivation path",
-      .text = vars.tmp_warning.derivation_path,
-    });
-UX_STEP_CB(
-    ux_display_public_flow_3_step,
-    pnn,
-    io_seproxyhal_touch_display_cancel(NULL),
-    {
-      &C_icon_crossmark,
-      "Reject if you're",
-      "not sure",
-    });
-UX_STEP_NOCB(
-    ux_display_public_flow_4_step,
-    pnn,
-    {
-      &C_icon_validate_14,
-      "Approve derivation",
-      "path",
-    });
-UX_STEP_NOCB(
-    ux_display_public_flow_5_step,
-    bnnn_paging,
-    {
-      .title = "Address",
-      .text = (char *)G_io_apdu_buffer+200,
-    });
-UX_STEP_CB(
-    ux_display_public_flow_6_step,
-    pb,
-    io_seproxyhal_touch_display_ok(NULL),
-    {
-      &C_icon_validate_14,
-      "Approve",
-    });
-UX_STEP_CB(
-    ux_display_public_flow_7_step,
-    pb,
-    io_seproxyhal_touch_display_cancel(NULL),
-    {
-      &C_icon_crossmark,
-      "Reject",
-    });
-
-UX_FLOW(ux_display_public_with_warning_flow,
-  &ux_display_public_flow_1_step,
-  &ux_display_public_flow_2_step,
-  &ux_display_public_flow_3_step,
-  &ux_display_public_flow_4_step,
-  FLOW_BARRIER,
-  &ux_display_public_flow_5_step,
-  &ux_display_public_flow_6_step,
-  &ux_display_public_flow_7_step
-);
-
-UX_FLOW(ux_display_public_flow,
-  &ux_display_public_flow_5_step,
-  &ux_display_public_flow_6_step,
-  &ux_display_public_flow_7_step
-);
-
-
-//////////////////////////////////////////////////////////////////////
-UX_STEP_CB(
-    ux_display_token_flow_1_step,
-    pbb,
-    io_seproxyhal_touch_display_ok(NULL),
-    {
-      &C_icon_validate_14,
-      "Confirm token",
-      (char *)G_io_apdu_buffer+200,
-    });
-UX_STEP_CB(
-    ux_display_token_flow_2_step,
-    pb,
-    io_seproxyhal_touch_display_cancel(NULL),
-    {
-      &C_icon_crossmark,
-      "Reject",
-    });
-
-UX_FLOW(ux_display_token_flow,
-  &ux_display_token_flow_1_step,
-  &ux_display_token_flow_2_step
-);
-
-//////////////////////////////////////////////////////////////////////
-UX_STEP_CB(
-    ux_request_pubkey_approval_flow_1_step,
-    pbb,
-    io_seproxyhal_touch_display_ok(NULL),
-    {
-      &C_icon_validate_14,
-      "Export",
-      "public key?",
-    });
-UX_STEP_CB(
-    ux_request_pubkey_approval_flow_2_step,
-    pb,
-    io_seproxyhal_touch_display_cancel(NULL),
-    {
-      &C_icon_crossmark,
-      "Reject",
-    });
-
-UX_FLOW(ux_request_pubkey_approval_flow,
-  &ux_request_pubkey_approval_flow_1_step,
-  &ux_request_pubkey_approval_flow_2_step
-);
-
-//////////////////////////////////////////////////////////////////////
-UX_STEP_NOCB(
-    ux_request_change_path_approval_flow_1_step,
-    pbb,
-    {
-      &C_icon_eye,
-      "The change path",
-      "is unusual",
-    });
-UX_STEP_NOCB(
-    ux_request_change_path_approval_flow_2_step,
-    bnnn_paging,
-    {
-      .title = "Change path",
-      .text = vars.tmp_warning.derivation_path,
-    });
-UX_STEP_CB(
-    ux_request_change_path_approval_flow_3_step,
-    pbb,
-    io_seproxyhal_touch_display_cancel(NULL),
-    {
-      &C_icon_crossmark,
-      "Reject if you're",
-      "not sure",
-    });
-UX_STEP_CB(
-    ux_request_change_path_approval_flow_4_step,
-    pb,
-    io_seproxyhal_touch_display_ok(NULL),
-    {
-      &C_icon_validate_14,
-      "Approve",
-    });
-
-UX_FLOW(ux_request_change_path_approval_flow,
-  &ux_request_change_path_approval_flow_1_step,
-  &ux_request_change_path_approval_flow_2_step,
-  &ux_request_change_path_approval_flow_3_step,
-  &ux_request_change_path_approval_flow_4_step
-);
-
-//////////////////////////////////////////////////////////////////////
-UX_STEP_NOCB(
-    ux_request_sign_path_approval_flow_1_step,
-    pbb,
-    {
-      &C_icon_eye,
-      "The sign path",
-      "is unusual",
-    });
-UX_STEP_NOCB(
-    ux_request_sign_path_approval_flow_2_step,
-    bnnn_paging,
-    {
-      .title = "Sign path",
-      .text = vars.tmp_warning.derivation_path,
-    });
-UX_STEP_CB(
-    ux_request_sign_path_approval_flow_3_step,
-    pbb,
-    io_seproxyhal_touch_sign_cancel(NULL),
-    {
-      &C_icon_crossmark,
-      "Reject if you're",
-      "not sure",
-    });
-UX_STEP_CB(
-    ux_request_sign_path_approval_flow_4_step,
-    pb,
-    io_seproxyhal_touch_sign_ok(NULL),
-    {
-      &C_icon_validate_14,
-      "Approve",
-    });
-
-UX_FLOW(ux_request_sign_path_approval_flow,
-  &ux_request_sign_path_approval_flow_1_step,
-  &ux_request_sign_path_approval_flow_2_step,
-  &ux_request_sign_path_approval_flow_3_step,
-  &ux_request_sign_path_approval_flow_4_step
-);
-
-
-//////////////////////////////////////////////////////////////////////
-UX_STEP_NOCB(
-    ux_request_segwit_input_approval_flow_1_step,
-    pb,
-    {
-      .icon = &C_icon_warning,
-      .line1 = "Unverified inputs"
-    });
-UX_STEP_NOCB(
-    ux_request_segwit_input_approval_flow_2_step,
-    nn,
-    {
-      .line1 = "Update",
-      .line2 = " Ledger Live"
-    });
-UX_STEP_NOCB(
-    ux_request_segwit_input_approval_flow_3_step,
-    nn
-    ,
-    {
-      .line1 = "or third party",
-      .line2 = "wallet software"
-    });
-UX_STEP_CB(
-    ux_request_segwit_input_approval_flow_4_step,
-    pb,
-    io_seproxyhal_touch_display_cancel(NULL),
-    {
-      .icon = &C_icon_crossmark,
-      .line1 = "Cancel"
-    });
-UX_STEP_CB(
-    ux_request_segwit_input_approval_flow_5_step,
-    pb,
-    io_seproxyhal_touch_display_ok(NULL),
-    {
-      &C_icon_validate_14,
-      "Continue"
-    });
-
-UX_FLOW(ux_request_segwit_input_approval_flow,
-  &ux_request_segwit_input_approval_flow_1_step,
-  &ux_request_segwit_input_approval_flow_2_step,
-  &ux_request_segwit_input_approval_flow_3_step,
-  &ux_request_segwit_input_approval_flow_4_step,
-  &ux_request_segwit_input_approval_flow_5_step
-);
-
-
-void ui_idle(void) {
-    // reserve a display stack slot if none yet
-    if(G_ux.stack_count == 0) {
-        ux_stack_push();
-    }
-    ux_flow_init(0, ux_idle_flow, NULL);
-}
-
-// override point, but nothing more to do
-void io_seproxyhal_display(const bagl_element_t *element) {
-    if ((element->component.type & (~BAGL_TYPE_FLAGS_MASK)) != BAGL_NONE) {
-        io_seproxyhal_display_default((bagl_element_t *)element);
-    }
-}
-
-unsigned short io_exchange_al(unsigned char channel, unsigned short tx_len) {
-    switch (channel & ~(IO_FLAGS)) {
-    case CHANNEL_KEYBOARD:
-        break;
-
-    // multiplexed io exchange over a SPI channel and TLV encapsulated protocol
-    case CHANNEL_SPI:
-        if (tx_len) {
-            io_seproxyhal_spi_send(G_io_apdu_buffer, tx_len);
-
-            if (channel & IO_RESET_AFTER_REPLIED) {
-                reset();
-            }
-            return 0; // nothing received from the master so far (it's a tx
-                      // transaction)
-        } else {
-            return io_seproxyhal_spi_recv(G_io_apdu_buffer,
-                                          sizeof(G_io_apdu_buffer), 0);
-        }
-
-    default:
-        THROW(INVALID_PARAMETER);
-    }
-    return 0;
-}
-
-unsigned char io_event(unsigned char channel) {
-    // nothing done with the event, throw an error on the transport layer if
-    // needed
-
-    // can't have more than one tag in the reply, not supported yet.
-    switch (G_io_seproxyhal_spi_buffer[0]) {
-    case SEPROXYHAL_TAG_FINGER_EVENT:
-        UX_FINGER_EVENT(G_io_seproxyhal_spi_buffer);
-        break;
-
-    case SEPROXYHAL_TAG_BUTTON_PUSH_EVENT:
-        UX_BUTTON_PUSH_EVENT(G_io_seproxyhal_spi_buffer);
-        break;
-
-    case SEPROXYHAL_TAG_STATUS_EVENT:
-        if (G_io_apdu_media == IO_APDU_MEDIA_USB_HID &&
-            !(U4BE(G_io_seproxyhal_spi_buffer, 3) &
-              SEPROXYHAL_TAG_STATUS_EVENT_FLAG_USB_POWERED)) {
-            THROW(EXCEPTION_IO_RESET);
-        }
-        // no break is intentional
-    default:
-        UX_DEFAULT_EVENT();
-        break;
-
-    case SEPROXYHAL_TAG_DISPLAY_PROCESSED_EVENT:
-        UX_DISPLAYED_EVENT({});
-        break;
-
-    case SEPROXYHAL_TAG_TICKER_EVENT:
-        // TODO: found less hacky way to exit library after sending response
-        // this mechanism is used for Swap/Exchange functionality
-        // when application is in silent mode, and should return to caller,
-        // after responding some APDUs
-        UX_TICKER_EVENT(G_io_seproxyhal_spi_buffer, {});
-        break;
-    }
-
-    // close the event if not done previously (by a display or whatever)
-    if (!io_seproxyhal_spi_is_status_sent()) {
-        io_seproxyhal_general_status();
-    }
-
-    // command has been processed, DO NOT reset the current APDU transport
-    return 1;
-}
-
-uint8_t check_fee_swap() {
-    unsigned char fees[8];
-    unsigned char borrow;
-
-    borrow = transaction_amount_sub_be(
-            fees, btchip_context_D.transactionContext.transactionAmount,
-            btchip_context_D.totalOutputAmount);
-    if ((borrow != 0) || (memcmp(fees, vars.swap_data.fees, 8) != 0))
-        return 0;
-    btchip_context_D.transactionContext.firstSigned = 0;
-
-    if (btchip_context_D.usingSegwit &&  !btchip_context_D.segwitParsedOnce) {
-        // This input cannot be signed when using segwit - just restart.
-        btchip_context_D.segwitParsedOnce = 1;
-        PRINTF("Segwit parsed once\n");
-        btchip_context_D.transactionContext.transactionState =
-        BTCHIP_TRANSACTION_NONE;
-    } else {
-        btchip_context_D.transactionContext.transactionState =
-        BTCHIP_TRANSACTION_SIGN_READY;
-    }
-    btchip_context_D.sw = 0x9000;
-    btchip_context_D.outLength = 0;
-    G_io_apdu_buffer[btchip_context_D.outLength++] = 0x90;
-    G_io_apdu_buffer[btchip_context_D.outLength++] = 0x00;
-
-    return 1;
-}
-
-uint8_t prepare_fees() {
-    if (btchip_context_D.transactionContext.relaxed) {
-        os_memmove(vars.tmp.feesAmount, "UNKNOWN", 7);
-        vars.tmp.feesAmount[7] = '\0';
-    } else {
-        unsigned char fees[8];
-        unsigned short textSize;
-        unsigned char borrow;
-
-        borrow = transaction_amount_sub_be(
-                fees, btchip_context_D.transactionContext.transactionAmount,
-                btchip_context_D.totalOutputAmount);
-        if (borrow && G_coin_config->kind == COIN_KIND_KOMODO) {
-            os_memmove(vars.tmp.feesAmount, "REWARD", 6);
-            vars.tmp.feesAmount[6] = '\0';
-        }
-        else {
-            if (borrow) {
-                PRINTF("Error : Fees not consistent");
-                goto error;
-            }
-            os_memmove(vars.tmp.feesAmount, G_coin_config->name_short,
-                       strlen(G_coin_config->name_short));
-            vars.tmp.feesAmount[strlen(G_coin_config->name_short)] = ' ';
-            btchip_context_D.tmp =
-                (unsigned char *)(vars.tmp.feesAmount +
-                              strlen(G_coin_config->name_short) + 1);
-            textSize = btchip_convert_hex_amount_to_displayable(fees);
-            vars.tmp.feesAmount[textSize + strlen(G_coin_config->name_short) + 1] =
-                '\0';
-        }
-    }
-    return 1;
-error:
-    return 0;
-}
-
-#define OMNI_ASSETID 1
-#define MAIDSAFE_ASSETID 3
-#define USDT_ASSETID 31
-
-void get_address_from_output_script(unsigned char* script, int script_size, char* out, int out_size) {
-    if (btchip_output_script_is_op_return(script)) {
-        strcpy(out, "OP_RETURN");
-        return;
-    }
-    if ((G_coin_config->kind == COIN_KIND_QTUM || G_coin_config->kind == COIN_KIND_HYDRA) &&
-        btchip_output_script_is_op_create(script, script_size)) {
-        strcpy(out, "OP_CREATE");
-        return;
-    }
-    if ((G_coin_config->kind == COIN_KIND_QTUM || G_coin_config->kind == COIN_KIND_HYDRA) &&
-        btchip_output_script_is_op_call(script, script_size)) {
-        strcpy(out, "OP_CALL");
-        return;
-    }
-    if (btchip_output_script_is_native_witness(script)) {
-        if (G_coin_config->native_segwit_prefix) {
-            segwit_addr_encode(
-                out, (char *)PIC(G_coin_config->native_segwit_prefix), 0,
-                script + OUTPUT_SCRIPT_NATIVE_WITNESS_PROGRAM_OFFSET,
-                script[OUTPUT_SCRIPT_NATIVE_WITNESS_PROGRAM_OFFSET - 1]);
-        }
-        return;
-    }
-    unsigned char versionSize;
-    unsigned char address[22];
-    unsigned short textSize;
-    int addressOffset = 3;
-    unsigned short version = G_coin_config->p2sh_version;
-
-    if (btchip_output_script_is_regular(script)) {
-        addressOffset = 4;
-        version = G_coin_config->p2pkh_version;
-    }
-
-    if (version > 255) {
-        versionSize = 2;
-        address[0] = (version >> 8);
-        address[1] = version;
-    } else {
-        versionSize = 1;
-        address[0] = version;
-    }
-    os_memmove(address + versionSize, script + addressOffset, 20);
-
-    // Prepare address
-    if (btchip_context_D.usingCashAddr) {
-        cashaddr_encode(
-            address + versionSize, 20, (uint8_t *)out, out_size,
-            (version == G_coin_config->p2sh_version
-                    ? CASHADDR_P2SH
-                    : CASHADDR_P2PKH));
-    } else {
-        textSize = btchip_public_key_to_encoded_base58(
-            address, 20 + versionSize, (unsigned char *)out,
-            out_size, version, 1);
-        out[textSize] = '\0';
-    }
-}
-
-uint8_t prepare_single_output() {
-    // TODO : special display for OP_RETURN
-    unsigned char amount[8];
-    unsigned int offset = 0;
-    unsigned short textSize;
-    char tmp[80] = {0};
-
-    btchip_swap_bytes(amount, btchip_context_D.currentOutput + offset, 8);
-    offset += 8;
-
-    get_address_from_output_script(btchip_context_D.currentOutput + offset,  sizeof(btchip_context_D.currentOutput) - offset, tmp, sizeof(tmp));
-    strncpy(vars.tmp.fullAddress, tmp, sizeof(vars.tmp.fullAddress) - 1);
-
-    // Prepare amount
-
-    // Handle Omni simple send
-    if ((btchip_context_D.currentOutput[offset + 2] == 0x14) &&
-        (os_memcmp(btchip_context_D.currentOutput + offset + 3, "omni", 4) == 0) &&
-        (os_memcmp(btchip_context_D.currentOutput + offset + 3 + 4, "\0\0\0\0", 4) == 0)) {
-            uint8_t headerLength;
-            uint32_t omniAssetId = btchip_read_u32(btchip_context_D.currentOutput + offset + 3 + 4 + 4, 1, 0);
-            switch(omniAssetId) {
-                case OMNI_ASSETID:
-                    strcpy(vars.tmp.fullAmount, "OMNI ");
-                    break;
-                case USDT_ASSETID:
-                    strcpy(vars.tmp.fullAmount, "USDT ");
-                    break;
-                case MAIDSAFE_ASSETID:
-                    strcpy(vars.tmp.fullAmount, "MAID ");
-                    break;
-                default:
-                    snprintf(vars.tmp.fullAmount, sizeof(vars.tmp.fullAmount), "OMNI asset %d ", omniAssetId);
-                    break;
-            }
-            headerLength = strlen(vars.tmp.fullAmount);
-            btchip_context_D.tmp = (uint8_t *)vars.tmp.fullAmount + headerLength;
-            textSize = btchip_convert_hex_amount_to_displayable(btchip_context_D.currentOutput + offset + 3 + 4 + 4 + 4);
-            vars.tmp.fullAmount[textSize + headerLength] = '\0';
-    }
-    else {
-        os_memmove(vars.tmp.fullAmount, G_coin_config->name_short,
-               strlen(G_coin_config->name_short));
-        vars.tmp.fullAmount[strlen(G_coin_config->name_short)] = ' ';
-        btchip_context_D.tmp =
-            (unsigned char *)(vars.tmp.fullAmount +
-                          strlen(G_coin_config->name_short) + 1);
-        textSize = btchip_convert_hex_amount_to_displayable(amount);
-        vars.tmp.fullAmount[textSize + strlen(G_coin_config->name_short) + 1] =
-            '\0';
-    }
-
-    return 1;
-}
-
-uint8_t prepare_message_signature() {
-    uint8_t buffer[32];
-
-    cx_hash(&btchip_context_D.transactionHashAuthorization.header, CX_LAST,
-            (uint8_t*)vars.tmp.fullAmount, 0, buffer, 32);
-
-    snprintf(vars.tmp.fullAddress, sizeof(vars.tmp.fullAddress), "%.*H", buffer);
-    return 1;
-}
-
-
-extern bool handle_output_state();
-extern void btchip_apdu_hash_input_finalize_full_reset(void);
-
-// Analog of btchip_bagl_confirm_single_output to work
-// in silent mode, when called from SWAP app
-unsigned int btchip_silent_confirm_single_output() {
-    char tmp[80] = {0};
-    unsigned char amount[8];
-    while (true) {
-        // in swap operation we can only have 1 "external" output
-        if (vars.swap_data.was_address_checked) {
-            PRINTF("Address was already checked\n");
-            return 0;
-        }
-        vars.swap_data.was_address_checked = 1;
-        // check amount
-        btchip_swap_bytes(amount, btchip_context_D.currentOutput, 8);
-        if (memcmp(amount, vars.swap_data.amount, 8) != 0) {
-            PRINTF("Amount not matched\n");
-            return 0;
-        }
-        get_address_from_output_script(btchip_context_D.currentOutput + 8, sizeof(btchip_context_D.currentOutput) - 8, tmp, sizeof(tmp));
-        if (strcmp(tmp, vars.swap_data.destination_address) != 0) {
-            PRINTF("Address not matched\n");
-            return 0;
-        }
-
-        // Check if all inputs have been confirmed
-
-        if (btchip_context_D.outputParsingState ==
-            BTCHIP_OUTPUT_PARSING_OUTPUT) {
-            btchip_context_D.remainingOutputs--;
-            if (btchip_context_D.remainingOutputs == 0)
-                break;
-        }
-
-        os_memmove(btchip_context_D.currentOutput,
-                    btchip_context_D.currentOutput +
-                        btchip_context_D.discardSize,
-                    btchip_context_D.currentOutputOffset -
-                        btchip_context_D.discardSize);
-        btchip_context_D.currentOutputOffset -= btchip_context_D.discardSize;
-        btchip_context_D.io_flags &= ~IO_ASYNCH_REPLY;
-        while (handle_output_state() &&
-                (!(btchip_context_D.io_flags & IO_ASYNCH_REPLY)))
-            ;
-        if (!(btchip_context_D.io_flags & IO_ASYNCH_REPLY)) {
-            // Out of data to process, wait for the next call
-            break;
-        }
-    }
-
-    if ((btchip_context_D.outputParsingState == BTCHIP_OUTPUT_PARSING_OUTPUT) &&
-        (btchip_context_D.remainingOutputs == 0)) {
-        btchip_context_D.outputParsingState = BTCHIP_OUTPUT_FINALIZE_TX;
-        // check fees
-        unsigned char fees[8];
-
-        if ((transaction_amount_sub_be(fees,
-                                       btchip_context_D.transactionContext.transactionAmount,
-                                       btchip_context_D.totalOutputAmount) != 0) ||
-            (memcmp(fees, vars.swap_data.fees, 8) != 0)) {
-            PRINTF("Fees is not matched\n");
-            return 0;
-        }
-    }
-
-    if (btchip_context_D.outputParsingState == BTCHIP_OUTPUT_FINALIZE_TX) {
-        btchip_context_D.transactionContext.firstSigned = 0;
-
-        if (btchip_context_D.usingSegwit &&
-            !btchip_context_D.segwitParsedOnce) {
-            // This input cannot be signed when using segwit - just restart.
-            btchip_context_D.segwitParsedOnce = 1;
-            PRINTF("Segwit parsed once\n");
-            btchip_context_D.transactionContext.transactionState =
-                BTCHIP_TRANSACTION_NONE;
-        } else {
-            btchip_context_D.transactionContext.transactionState =
-                BTCHIP_TRANSACTION_SIGN_READY;
-        }
-    }
-    if (btchip_context_D.outputParsingState == BTCHIP_OUTPUT_FINALIZE_TX) {
-        // we've finished the processing of the input
-        btchip_apdu_hash_input_finalize_full_reset();
-    }
-
-    return 1;
-}
-
-unsigned int btchip_bagl_confirm_single_output() {
-    if (btchip_context_D.called_from_swap) {
-        return btchip_silent_confirm_single_output();
-    }
-    if (!prepare_single_output()) {
-        return 0;
-    }
-
-    snprintf(vars.tmp.feesAmount, sizeof(vars.tmp.feesAmount), "output #%d",
-             btchip_context_D.totalOutputs - btchip_context_D.remainingOutputs +
-                 1);
-
-    ux_flow_init(0, ux_confirm_single_flow, NULL);
-    return 1;
-}
-
-unsigned int btchip_bagl_finalize_tx() {
-    if (btchip_context_D.called_from_swap) {
-        return check_fee_swap();
-    }
-
-    if (!prepare_fees()) {
-        return 0;
-    }
-
-    ux_flow_init(0, ux_finalize_flow, NULL);
-    return 1;
-}
-
-void btchip_bagl_confirm_message_signature() {
-    if (!prepare_message_signature()) {
-        return;
-    }
-
-    ux_flow_init(0, ux_sign_flow, NULL);
-}
-
-uint8_t set_key_path_to_display(unsigned char* keyPath) {
-    bip32_print_path(keyPath, vars.tmp_warning.derivation_path, MAX_DERIV_PATH_ASCII_LENGTH);
-    return bip44_derivation_guard(keyPath, false);
-}
-
-void btchip_bagl_display_public_key(uint8_t is_derivation_path_unusual) {
-    // append a white space at the end of the address to avoid glitch on nano S
-    strcat((char *)G_io_apdu_buffer + 200, " ");
-
-    ux_flow_init(0, is_derivation_path_unusual?ux_display_public_with_warning_flow:ux_display_public_flow, NULL);
-}
-
-void btchip_bagl_display_token()
-{
-    ux_flow_init(0, ux_display_token_flow, NULL);
-}
-
-void btchip_bagl_request_pubkey_approval()
-{
-    ux_flow_init(0, ux_request_pubkey_approval_flow, NULL);
-}
-
-void btchip_bagl_request_change_path_approval(unsigned char* change_path)
-{
-    bip32_print_path(change_path, vars.tmp_warning.derivation_path, sizeof(vars.tmp_warning.derivation_path));
-    ux_flow_init(0, ux_request_change_path_approval_flow, NULL);
-}
-
-void btchip_bagl_request_sign_path_approval(unsigned char* change_path)
-{
-    bip32_print_path(change_path, vars.tmp_warning.derivation_path, sizeof(vars.tmp_warning.derivation_path));
-    ux_flow_init(0, ux_request_sign_path_approval_flow, NULL);
-}
-
-void btchip_bagl_request_segwit_input_approval()
-{
-    ux_flow_init(0, ux_request_segwit_input_approval_flow, NULL);
-}
-
-
-
-void app_exit(void) {
-    BEGIN_TRY_L(exit) {
-        TRY_L(exit) {
-            os_sched_exit(-1);
-        }
-        FINALLY_L(exit) {
-        }
-    }
-    END_TRY_L(exit);
-}
-
-void init_coin_config(btchip_altcoin_config_t *coin_config) {
-    os_memset(coin_config, 0, sizeof(btchip_altcoin_config_t));
-    coin_config->bip44_coin_type = BIP44_COIN_TYPE;
-    coin_config->bip44_coin_type2 = BIP44_COIN_TYPE_2;
-    coin_config->p2pkh_version = COIN_P2PKH_VERSION;
-    coin_config->p2sh_version = COIN_P2SH_VERSION;
-    coin_config->family = COIN_FAMILY;
-    strcpy(coin_config->coinid, COIN_COINID);
-    strcpy(coin_config->name, COIN_COINID_NAME);
-    strcpy(coin_config->name_short, COIN_COINID_SHORT);
-#ifdef COIN_NATIVE_SEGWIT_PREFIX
-    strcpy(coin_config->native_segwit_prefix_val, COIN_NATIVE_SEGWIT_PREFIX);
-    coin_config->native_segwit_prefix = coin_config->native_segwit_prefix_val;
-#else
-    coin_config->native_segwit_prefix = 0;
-#endif // #ifdef COIN_NATIVE_SEGWIT_PREFIX
-#ifdef COIN_FORKID
-    coin_config->forkid = COIN_FORKID;
-#endif // COIN_FORKID
-#ifdef COIN_CONSENSUS_BRANCH_ID
-    coin_config->zcash_consensus_branch_id = COIN_CONSENSUS_BRANCH_ID;
-#endif // COIN_CONSENSUS_BRANCH_ID
-#ifdef COIN_FLAGS
-    coin_config->flags = COIN_FLAGS;
-#endif // COIN_FLAGS
-    coin_config->kind = COIN_KIND;
-}
-
-void coin_main(btchip_altcoin_config_t *coin_config) {
-    btchip_altcoin_config_t config;
-    if (coin_config == NULL) {
-        init_coin_config(&config);
-        G_coin_config = &config;
-    } else {
-        G_coin_config = coin_config;
-    }
-
-    for (;;) {
-        UX_INIT();
-        BEGIN_TRY {
-            TRY {
-                io_seproxyhal_init();
-
-#ifdef TARGET_NANOX
-                // grab the current plane mode setting
-                G_io_app.plane_mode = os_setting_get(OS_SETTING_PLANEMODE, NULL, 0);
-#endif // TARGET_NANOX
-
-                btchip_context_init();
-
-                USB_power(0);
-                USB_power(1);
-
-                ui_idle();
-
-#ifdef HAVE_BLE
-                BLE_power(0, NULL);
-                BLE_power(1, "Nano X");
-#endif // HAVE_BLE
-
-                app_main();
-            }
-            CATCH(EXCEPTION_IO_RESET) {
-                // reset IO and UX
-                CLOSE_TRY;
-                continue;
-            }
-            CATCH_ALL {
-                CLOSE_TRY;
-                break;
-            }
-            FINALLY {
-            }
-        }
-        END_TRY;
-    }
-    app_exit();
-}
-
-struct libargs_s {
-    unsigned int id;
-    unsigned int command;
-    btchip_altcoin_config_t *coin_config;
-    union {
-        check_address_parameters_t *check_address;
-        create_transaction_parameters_t *create_transaction;
-        get_printable_amount_parameters_t *get_printable_amount;
-    };
-};
-
-static void library_main_helper(struct libargs_s *args) {
-    check_api_level(CX_COMPAT_APILEVEL);
-    PRINTF("Inside a library \n");
-    switch (args->command) {
-        case CHECK_ADDRESS:
-            // ensure result is zero if an exception is thrown
-            args->check_address->result = 0;
-            args->check_address->result =
-                handle_check_address(args->check_address, args->coin_config);
-            break;
-        case SIGN_TRANSACTION:
-            if (copy_transaction_parameters(args->create_transaction)) {
-                // never returns
-                handle_swap_sign_transaction(args->coin_config);
-            }
-            break;
-        case GET_PRINTABLE_AMOUNT:
-            // ensure result is zero if an exception is thrown (compatibility breaking, disabled
-            // until LL is ready)
-            // args->get_printable_amount->result = 0;
-            // args->get_printable_amount->result =
-            handle_get_printable_amount(args->get_printable_amount, args->coin_config);
-            break;
-        default:
-            break;
-    }
-}
-
-void library_main(struct libargs_s *args) {
-    btchip_altcoin_config_t coin_config;
-    if (args->coin_config == NULL) {
-        init_coin_config(&coin_config);
-        args->coin_config = &coin_config;
-    }
-    bool end = false;
-    /* This loop ensures that library_main_helper and os_lib_end are called
-     * within a try context, even if an exception is thrown */
-    while (1) {
-        BEGIN_TRY {
-            TRY {
-                if (!end) {
-                    library_main_helper(args);
-                }
-                os_lib_end();
-            }
-            FINALLY {
-                end = true;
-            }
-        }
-        END_TRY;
-    }
-}
-
-__attribute__((section(".boot"))) int main(int arg0) {
-#ifdef USE_LIB_BITCOIN
-    BEGIN_TRY {
-        TRY {
-            unsigned int libcall_params[5];
-            btchip_altcoin_config_t coin_config;
-            init_coin_config(&coin_config);
-            PRINTF("Hello from litecoin\n");
-            check_api_level(CX_COMPAT_APILEVEL);
-            // delegate to bitcoin app/lib
-            libcall_params[0] = "Bitcoin";
-            libcall_params[1] = 0x100;
-            libcall_params[2] = RUN_APPLICATION;
-            libcall_params[3] = &coin_config;
-            libcall_params[4] = 0;
-            if (arg0) {
-                // call as a library
-                libcall_params[2] = ((unsigned int *)arg0)[1];
-                libcall_params[4] = ((unsigned int *)arg0)[3]; // library arguments
-                os_lib_call(&libcall_params);
-                ((unsigned int *)arg0)[0] = libcall_params[1];
-                os_lib_end();
-            }
-            else {
-                // launch coin application
-                os_lib_call(&libcall_params);
-            }
-        }
-        FINALLY {}
-    }
-    END_TRY;
-    // no return
-#else
-    // exit critical section
-    __asm volatile("cpsie i");
-
-    // ensure exception will work as planned
-    os_boot();
-
-    if (!arg0) {
-        // Bitcoin application launched from dashboard
-        coin_main(NULL);
-        return 0;
-    }
-    struct libargs_s *args = (struct libargs_s *) arg0;
-    if (args->id != 0x100) {
-        app_exit();
-        return 0;
-    }
-    switch (args->command) {
-        case RUN_APPLICATION:
-            // coin application launched from dashboard
-            if (args->coin_config == NULL)
-                app_exit();
-            else
-                coin_main(args->coin_config);
-            break;
-        default:
-            // called as bitcoin or altcoin library
-            library_main(args);
-    }
-#endif // USE_LIB_BITCOIN
-    return 0;
-}
+#*******************************************************************************
+#   Ledger App
+#   (c) 2017 Ledger
+#
+#  Licensed under the Apache License, Version 2.0 (the "License");
+#  you may not use this file except in compliance with the License.
+#  You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+#  Unless required by applicable law or agreed to in writing, software
+#  distributed under the License is distributed on an "AS IS" BASIS,
+#  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+#  See the License for the specific language governing permissions and
+#  limitations under the License.
+#*******************************************************************************
+
+ifeq ($(BOLOS_SDK),)
+$(error Environment variable BOLOS_SDK is not set)
+endif
+include $(BOLOS_SDK)/Makefile.defines
+
+APP_PATH = ""
+# groestlcoin app and groestlcoin_testnet do not use the lib and are both standalone
+DEFINES_LIB =
+APP_LOAD_PARAMS= --curve secp256k1 $(COMMON_LOAD_PARAMS)
+
+APPVERSION_M=1
+APPVERSION_N=6
+APPVERSION_P=6
+APPVERSION=$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)
+APP_LOAD_FLAGS=--appFlags 0xa50
+
+# simplify for tests
+ifndef COIN
+COIN=groestlcoin
+endif
+
+ifeq ($(COIN),bitcoin_testnet)
+# Bitcoin testnet
+DEFINES   += BIP44_COIN_TYPE=1 BIP44_COIN_TYPE_2=1 COIN_P2PKH_VERSION=111 COIN_P2SH_VERSION=196 COIN_FAMILY=1 COIN_COINID=\"Bitcoin\" COIN_COINID_HEADER=\"BITCOIN\" COIN_COLOR_HDR=0xFCB653 COIN_COLOR_DB=0xFEDBA9 COIN_COINID_NAME=\"Bitcoin\" COIN_COINID_SHORT=\"TEST\" COIN_NATIVE_SEGWIT_PREFIX=\"tb\" COIN_KIND=COIN_KIND_BITCOIN_TESTNET COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+APPNAME ="Bitcoin Test"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),bitcoin)
+# Bitcoin mainnet
+DEFINES   += BIP44_COIN_TYPE=0 BIP44_COIN_TYPE_2=0 COIN_P2PKH_VERSION=0 COIN_P2SH_VERSION=5 COIN_FAMILY=1 COIN_COINID=\"Bitcoin\" COIN_COINID_HEADER=\"BITCOIN\" COIN_COLOR_HDR=0xFCB653 COIN_COLOR_DB=0xFEDBA9 COIN_COINID_NAME=\"Bitcoin\" COIN_COINID_SHORT=\"BTC\" COIN_NATIVE_SEGWIT_PREFIX=\"bc\" COIN_KIND=COIN_KIND_BITCOIN COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+DEFINES_LIB=# we're not using the lib :)
+APPNAME ="Bitcoin"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+#LIB and global pin and
+APP_LOAD_FLAGS=--appFlags 0xa50
+else ifeq ($(COIN),bitcoin_cash)
+# Bitcoin cash
+# Initial fork from Bitcoin, public key access is authorized. Signature is different thanks to the forkId
+DEFINES   += BIP44_COIN_TYPE=145 BIP44_COIN_TYPE_2=0 COIN_P2PKH_VERSION=0 COIN_P2SH_VERSION=5 COIN_FAMILY=1 COIN_COINID=\"Bitcoin\" COIN_COINID_HEADER=\"BITCOINCASH\" COIN_COLOR_HDR=0x85bb65 COIN_COLOR_DB=0xc2ddb2 COIN_COINID_NAME=\"BitcoinCash\" COIN_COINID_SHORT=\"BCH\" COIN_KIND=COIN_KIND_BITCOIN_CASH COIN_FORKID=0
+APPNAME ="Bitcoin Cash"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),bitcoin_gold)
+# Bitcoin Gold
+# Initial fork from Bitcoin, public key access is authorized. Signature is different thanks to the forkId
+DEFINES   += BIP44_COIN_TYPE=156 BIP44_COIN_TYPE_2=0 COIN_P2PKH_VERSION=38 COIN_P2SH_VERSION=23 COIN_FAMILY=1 COIN_COINID=\"Bitcoin\\x20Gold\" COIN_COINID_HEADER=\"BITCOINGOLD\" COIN_COLOR_HDR=0x85bb65 COIN_COLOR_DB=0xc2ddb2 COIN_COINID_NAME=\"BitcoinGold\" COIN_COINID_SHORT=\"BTG\" COIN_KIND=COIN_KIND_BITCOIN_GOLD COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT COIN_FORKID=79
+APPNAME ="Bitcoin Gold"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),litecoin)
+# Litecoin
+DEFINES   += BIP44_COIN_TYPE=2 BIP44_COIN_TYPE_2=2 COIN_P2PKH_VERSION=48 COIN_P2SH_VERSION=50 COIN_FAMILY=1 COIN_COINID=\"Litecoin\" COIN_COINID_HEADER=\"LITECOIN\" COIN_COLOR_HDR=0xCCCCCC COIN_COLOR_DB=0xE6E6E6 COIN_COINID_NAME=\"Litecoin\" COIN_COINID_SHORT=\"LTC\" COIN_NATIVE_SEGWIT_PREFIX=\"ltc\" COIN_KIND=COIN_KIND_LITECOIN COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+APPNAME ="Litecoin"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),dogecoin)
+# Doge
+DEFINES   += BIP44_COIN_TYPE=3 BIP44_COIN_TYPE_2=3 COIN_P2PKH_VERSION=30 COIN_P2SH_VERSION=22 COIN_FAMILY=1 COIN_COINID=\"Dogecoin\" COIN_COINID_HEADER=\"DOGECOIN\" COIN_COLOR_HDR=0x65D196 COIN_COLOR_DB=0xB2E8CB COIN_COINID_NAME=\"Dogecoin\" COIN_COINID_SHORT=\"DOGE\" COIN_KIND=COIN_KIND_DOGE
+APPNAME ="Dogecoin"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),dash)
+# Dash
+DEFINES   += BIP44_COIN_TYPE=5 BIP44_COIN_TYPE_2=5 COIN_P2PKH_VERSION=76 COIN_P2SH_VERSION=16 COIN_FAMILY=1 COIN_COINID=\"DarkCoin\" COIN_COINID_HEADER=\"DASH\" COIN_COLOR_HDR=0x0E76AA COIN_COLOR_DB=0x87BBD5 COIN_COINID_NAME=\"Dash\" COIN_COINID_SHORT=\"DASH\" COIN_KIND=COIN_KIND_DASH
+APPNAME ="Dash"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),zcash)
+# Zcash
+DEFINES   += BIP44_COIN_TYPE=133 BIP44_COIN_TYPE_2=133 COIN_P2PKH_VERSION=7352 COIN_P2SH_VERSION=7357 COIN_FAMILY=1 COIN_COINID=\"Zcash\" COIN_COINID_HEADER=\"ZCASH\" COIN_COLOR_HDR=0x3790CA COIN_COLOR_DB=0x9BC8E5 COIN_COINID_NAME=\"Zcash\" COIN_COINID_SHORT=\"ZEC\" COIN_KIND=COIN_KIND_ZCASH
+# Switch to Canopy over Heartwood
+DEFINES   += COIN_CONSENSUS_BRANCH_ID=0xE9FF75A6
+APPNAME ="Zcash"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),horizen)
+# Horizen
+DEFINES   += BIP44_COIN_TYPE=121 BIP44_COIN_TYPE_2=121 COIN_P2PKH_VERSION=8329 COIN_P2SH_VERSION=8342 COIN_FAMILY=4 COIN_COINID=\"Horizen\" COIN_COINID_HEADER=\"HORIZEN\" COIN_COLOR_HDR=0xFF4300 COIN_COLOR_DB=0xFF8356 COIN_COINID_NAME=\"Horizen\" COINID=$(COIN) COIN_COINID_SHORT=\"ZEN\" COIN_KIND=COIN_KIND_HORIZEN
+APPNAME ="Horizen"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),komodo)
+# Komodo
+DEFINES   += BIP44_COIN_TYPE=141 BIP44_COIN_TYPE_2=141 COIN_P2PKH_VERSION=60 COIN_P2SH_VERSION=85 COIN_FAMILY=1 COIN_COINID=\"Komodo\" COIN_COINID_HEADER=\"KOMODO\" COIN_COLOR_HDR=0x326464 COIN_COLOR_DB=0x99b2b2 COIN_COINID_NAME=\"Komodo\" COIN_COINID_SHORT=\"KMD\" COIN_KIND=COIN_KIND_KOMODO
+APPNAME ="Komodo"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),stratis)
+# Stratis
+DEFINES   += BIP44_COIN_TYPE=105105 BIP44_COIN_TYPE_2=105105 COIN_P2PKH_VERSION=75 COIN_P2SH_VERSION=140 COIN_FAMILY=2 COIN_COINID=\"Stratis\" COIN_COINID_HEADER=\"STRATIS\" COIN_COLOR_HDR=0x3790CA COIN_COLOR_DB=0x9BC8E5 COIN_COINID_NAME=\"Stratis\" COIN_COINID_SHORT=\"STRAX\" COIN_KIND=COIN_KIND_STRATIS COIN_FLAGS=FLAG_PEERCOIN_SUPPORT
+APPNAME ="Stratis"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),xrhodium)
+#Xrhodium
+DEFINES   += BIP44_COIN_TYPE=10291 BIP44_COIN_TYPE_2=10291 COIN_P2PKH_VERSION=61 COIN_P2SH_VERSION=123 COIN_FAMILY=1 COIN_COINID=\"xrhodium\" COIN_COINID_HEADER=\"XRHODIUM\" COIN_COLOR_HDR=0xFF9900 COIN_COLOR_DB=0xFEEBCE COIN_COINID_NAME=\"xRhodium\" COIN_COINID_SHORT=\"XRC\" COIN_KIND=COIN_KIND_XRHODIUM
+APPNAME ="xRhodium"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),peercoin)
+# Peercoin
+DEFINES += BIP44_COIN_TYPE=6 BIP44_COIN_TYPE_2=6 COIN_P2PKH_VERSION=55 COIN_P2SH_VERSION=117 COIN_FAMILY=2 COIN_COINID=\"PPCoin\" COIN_COINID_HEADER=\"PEERCOIN\" COIN_COLOR_HDR=0x3790CA COIN_COLOR_DB=0x9BC8E5 COIN_COINID_NAME=\"Peercoin\" COIN_COINID_SHORT=\"PPC\" COIN_KIND=COIN_KIND_PEERCOIN COIN_FLAGS=FLAG_PEERCOIN_UNITS\|FLAG_PEERCOIN_SUPPORT
+APPNAME ="Peercoin"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),pivx)
+# PivX
+# 77 was used in the Chrome apps
+DEFINES   += BIP44_COIN_TYPE=119 BIP44_COIN_TYPE_2=77 COIN_P2PKH_VERSION=30 COIN_P2SH_VERSION=13 COIN_FAMILY=1 COIN_COINID=\"DarkNet\" COIN_COINID_HEADER=\"PIVX\" COIN_COLOR_HDR=0x46385D COIN_COLOR_DB=0x9E96AA COIN_COINID_NAME=\"PivX\" COIN_COINID_SHORT=\"PIVX\" COIN_KIND=COIN_KIND_PIVX
+APPNAME ="PivX"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),stealth)
+# Stealth
+DEFINES   += BIP44_COIN_TYPE=125 BIP44_COIN_TYPE_2=125 COIN_P2PKH_VERSION=62 COIN_P2SH_VERSION=85 COIN_FAMILY=4 COIN_COINID=\"Stealth\" COIN_COINID_HEADER=\"STEALTH\" COIN_COLOR_HDR=0x000000 COIN_COLOR_DB=0x808080 COIN_COINID_NAME=\"Stealth\" COIN_COINID_SHORT=\"XST\" COIN_KIND=COIN_KIND_STEALTH COIN_FLAGS=FLAG_PEERCOIN_UNITS\|FLAG_PEERCOIN_SUPPORT
+APPNAME ="Stealth"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),viacoin)
+# Viacoin
+DEFINES   += BIP44_COIN_TYPE=14 BIP44_COIN_TYPE_2=14 COIN_P2PKH_VERSION=71 COIN_P2SH_VERSION=33 COIN_FAMILY=1 COIN_COINID=\"Viacoin\" COIN_COINID_HEADER=\"VIACOIN\" COIN_COLOR_HDR=0x414141 COIN_COLOR_DB=0xA0A0A0 COIN_COINID_NAME=\"Viacoin\" COIN_COINID_SHORT=\"VIA\" COIN_KIND=COIN_KIND_VIACOIN COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+APPNAME ="Viacoin"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),vertcoin)
+# Vertcoin
+# 128 was used in the Chrome apps
+DEFINES   += BIP44_COIN_TYPE=28 BIP44_COIN_TYPE_2=128 COIN_P2PKH_VERSION=71 COIN_P2SH_VERSION=5 COIN_FAMILY=1 COIN_COINID=\"Vertcoin\" COIN_COINID_HEADER=\"VERTCOIN\" COIN_COLOR_HDR=0x1B5C2E COIN_COLOR_DB=0x8DAE97 COIN_COINID_NAME=\"Vertcoin\" COIN_COINID_SHORT=\"VTC\" COIN_NATIVE_SEGWIT_PREFIX=\"vtc\" COIN_KIND=COIN_KIND_VERTCOIN COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+APPNAME ="Vertcoin"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),digibyte)
+DEFINES   += BIP44_COIN_TYPE=20 BIP44_COIN_TYPE_2=20 COIN_P2PKH_VERSION=30 COIN_P2SH_VERSION=63 COIN_FAMILY=1 COIN_COINID=\"DigiByte\" COIN_COINID_HEADER=\"DIGIBYTE\" COIN_COLOR_HDR=0x2864AE COIN_COLOR_DB=0x94B2D7 COIN_COINID_NAME=\"DigiByte\" COIN_COINID_SHORT=\"DGB\" COIN_NATIVE_SEGWIT_PREFIX=\"dgb\" COIN_KIND=COIN_KIND_DIGIBYTE COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+APPNAME ="Digibyte"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),qtum)
+# Qtum
+# Qtum can run significantly different code paths, thus is locked by the OS
+# using APP_LOAD_PARAMS instead of BIP44_COIN_TYPE
+DEFINES   += BIP44_COIN_TYPE=0 BIP44_COIN_TYPE_2=0 COIN_P2PKH_VERSION=58 COIN_P2SH_VERSION=50 COIN_FAMILY=3 COIN_COINID=\"Qtum\" COIN_COINID_HEADER=\"QTUM\" COIN_COLOR_HDR=0x2E9AD0 COIN_COLOR_DB=0x97CDE8 COIN_COINID_NAME=\"QTUM\" COIN_COINID_SHORT=\"QTUM\" COIN_NATIVE_SEGWIT_PREFIX=\"qc\" COIN_KIND=COIN_KIND_QTUM COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+APPNAME ="Qtum"
+APP_LOAD_PARAMS += --path "44'/88'" --path "49'/88'" --path "84'/88'" --path "0'/45342'" --path "20698'/3053'/12648430'"
+else ifeq ($(COIN),firo)
+DEFINES   += BIP44_COIN_TYPE=136 BIP44_COIN_TYPE_2=136 COIN_P2PKH_VERSION=82 COIN_P2SH_VERSION=7 COIN_FAMILY=1 COIN_COINID=\"Zcoin\" COIN_COINID_HEADER=\"FIRO\" COIN_COLOR_HDR=0x3EAD54 COIN_COLOR_DB=0xA3DCAE COIN_COINID_NAME=\"Firo\" COIN_COINID_SHORT=\"FIRO\" COIN_KIND=COIN_KIND_FIRO
+APPNAME ="Firo"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),bitcoin_private)
+# Bitcoin Private
+# Initial fork from Bitcoin, public key access is authorized. Signature is different thanks to the forkId
+# Note : might need a third lock on ZClassic
+DEFINES   += BIP44_COIN_TYPE=183 BIP44_COIN_TYPE_2=0 COIN_P2PKH_VERSION=4901 COIN_P2SH_VERSION=5039 COIN_FAMILY=1 COIN_COINID=\"BPrivate\" COIN_COINID_HEADER=\"BITCOINPRIVATE\" COIN_COLOR_HDR=0x85bb65 COIN_COLOR_DB=0xc2ddb2 COIN_COINID_NAME=\"BPrivate\" COIN_COINID_SHORT=\"BTCP\" COIN_KIND=COIN_KIND_BITCOIN_PRIVATE COIN_FORKID=42
+APPNAME ="Bitcoin Private"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),gamecredits)
+# GameCredits
+DEFINES   += BIP44_COIN_TYPE=101  BIP44_COIN_TYPE_2=101 COIN_P2PKH_VERSION=38 COIN_P2SH_VERSION=62 COIN_FAMILY=1 COIN_COINID=\"GameCredits\" COIN_COINID_HEADER=\"GAMECREDITS\" COIN_COLOR_HDR=0x98C01F COIN_COLOR_DB=0xA1A2A7 COIN_COINID_NAME=\"GameCredits\" COIN_COINID_SHORT=\"GAME\" COIN_KIND=COIN_KIND_GAMECREDITS COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+APPNAME ="GameCredits"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),zclassic)
+# ZClassic
+DEFINES   += BIP44_COIN_TYPE=147  BIP44_COIN_TYPE_2=147 COIN_P2PKH_VERSION=7352 COIN_P2SH_VERSION=7357 COIN_FAMILY=1 COIN_COINID=\"ZClassic\" COIN_COINID_HEADER=\"ZCLASSIC\" COIN_COLOR_HDR=0xc87035 COIN_COLOR_DB=0xc78457 COIN_COINID_NAME=\"ZClassic\" COIN_COINID_SHORT=\"ZCL\" COIN_KIND=COIN_KIND_ZCLASSIC
+APPNAME ="ZClassic"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),xsn)
+# XSN mainnet
+DEFINES   += BIP44_COIN_TYPE=384  BIP44_COIN_TYPE_2=384 COIN_P2PKH_VERSION=76 COIN_P2SH_VERSION=16 COIN_FAMILY=1 COIN_COINID=\"XSN\" COIN_COINID_HEADER=\"XSN\" COIN_COLOR_HDR=0x2982D1 COIN_COLOR_DB=0x7FB6E6 COIN_COINID_NAME=\"XSN\" COIN_COINID_SHORT=\"XSN\" COIN_NATIVE_SEGWIT_PREFIX=\"xc\" COIN_KIND=COIN_KIND_XSN COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+APPNAME ="XSN"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),nix)
+# NIX
+DEFINES   += BIP44_COIN_TYPE=400  BIP44_COIN_TYPE_2=400 COIN_P2PKH_VERSION=38 COIN_P2SH_VERSION=53 COIN_FAMILY=1 COIN_COINID=\"NIX\" COIN_COINID_HEADER=\"NIX\" COIN_COLOR_HDR=0x1685e8 COIN_COLOR_DB=0xffffff COIN_COINID_NAME=\"NIX\" COIN_COINID_SHORT=\"NIX\" COIN_NATIVE_SEGWIT_PREFIX=\"nix\" COIN_KIND=COIN_KIND_NIX COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+APPNAME ="NIX"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),lbry)
+# LBRY
+DEFINES   += BIP44_COIN_TYPE=140  BIP44_COIN_TYPE_2=140 COIN_P2PKH_VERSION=85 COIN_P2SH_VERSION=122 COIN_FAMILY=1 COIN_COINID=\"LBRY\" COIN_COINID_HEADER=\"LBRY\" COIN_COLOR_HDR=0x38D9A9 COIN_COLOR_DB=0xFEDBA9 COIN_COINID_NAME=\"LBRY\" COIN_COINID_SHORT=\"LBC\" COIN_KIND=COIN_KIND_LBRY
+APPNAME ="LBRY"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),resistance)
+# Resistance
+DEFINES   += BIP44_COIN_TYPE=356  BIP44_COIN_TYPE_2=356 COIN_P2PKH_VERSION=7063 COIN_P2SH_VERSION=7068 COIN_FAMILY=1 COIN_COINID=\"Res\" COIN_COINID_HEADER=\"RES\" COIN_COLOR_HDR=0x3790CA COIN_COLOR_DB=0x9BC8E5 COIN_COINID_NAME=\"Res\" COIN_COINID_SHORT=\"RES\" COIN_KIND=COIN_KIND_RESISTANCE
+APPNAME ="Resistance"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),ravencoin)
+# Ravencoin
+DEFINES   += BIP44_COIN_TYPE=175  BIP44_COIN_TYPE_2=175 COIN_P2PKH_VERSION=60 COIN_P2SH_VERSION=122 COIN_FAMILY=1 COIN_COINID=\"Ravencoin\" COIN_COINID_HEADER=\"RAVENCOIN\" COIN_COLOR_HDR=0x2E4A80 COIN_COLOR_DB=0x74829E COIN_COINID_NAME=\"Ravencoin\" COIN_COINID_SHORT=\"RVN\" COIN_KIND=COIN_KIND_RAVENCOIN
+APPNAME ="Ravencoin"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+else ifeq ($(COIN),hydra_testnet)
+# Hydra testnet
+DEFINES   += BIP44_COIN_TYPE=0 BIP44_COIN_TYPE_2=0 COIN_P2PKH_VERSION=66 COIN_P2SH_VERSION=128 COIN_FAMILY=3 COIN_COINID=\"Hydra\" COIN_COINID_HEADER=\"HYDRA\" COIN_COLOR_HDR=0x2E9AD0 COIN_COLOR_DB=0x97CDE8 COIN_COINID_NAME=\"HYDRA\" COIN_COINID_SHORT=\"HYDRA\" COIN_NATIVE_SEGWIT_PREFIX=\"hc\" COIN_KIND=COIN_KIND_HYDRA COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+APPNAME ="Hydra Test"
+APP_LOAD_PARAMS += --path "44'/609'"
+else ifeq ($(COIN),hydra)
+# Hydra mainnet
+DEFINES   += BIP44_COIN_TYPE=0 BIP44_COIN_TYPE_2=0 COIN_P2PKH_VERSION=40 COIN_P2SH_VERSION=63 COIN_FAMILY=3 COIN_COINID=\"Hydra\" COIN_COINID_HEADER=\"HYDRA\" COIN_COLOR_HDR=0x2E9AD0 COIN_COLOR_DB=0x97CDE8 COIN_COINID_NAME=\"HYDRA\" COIN_COINID_SHORT=\"HYDRA\" COIN_NATIVE_SEGWIT_PREFIX=\"hc\" COIN_KIND=COIN_KIND_HYDRA COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+APPNAME ="Hydra"
+APP_LOAD_PARAMS += --path "44'/609'"
+else ifeq ($(COIN),groestlcoin)
+# Groestlcoin
+DEFINES   += BIP44_COIN_TYPE=17 BIP44_COIN_TYPE_2=17 COIN_P2PKH_VERSION=36 COIN_P2SH_VERSION=5 COIN_FAMILY=1 COIN_COINID=\"GroestlCoin\" COIN_COINID_HEADER=\"GROESTLCOIN\" COIN_COLOR_HDR=0xFCB653 COIN_COLOR_DB=0xFEDBA9 COIN_COINID_NAME=\"Groestlcoin\" COIN_COINID_SHORT=\"GRS\" COIN_NATIVE_SEGWIT_PREFIX=\"grs\" COIN_KIND=COIN_KIND_GROESTLCOIN COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+DEFINES_LIB=# we're not using the lib :)
+APPNAME ="Groestlcoin"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+APP_LOAD_FLAGS=--appFlags 0xa50
+else ifeq ($(COIN),groestlcoin_testnet)
+# Groestlcoin testnet
+DEFINES   += BIP44_COIN_TYPE=1 BIP44_COIN_TYPE_2=1 COIN_P2PKH_VERSION=111 COIN_P2SH_VERSION=196 COIN_FAMILY=1 COIN_COINID=\"GroestlCoin\" COIN_COINID_HEADER=\"GROESTLCOIN\" COIN_COLOR_HDR=0xFCB653 COIN_COLOR_DB=0xFEDBA9 COIN_COINID_NAME=\"Groestlcoin\" COIN_COINID_SHORT=\"TGRS\" COIN_NATIVE_SEGWIT_PREFIX=\"tgrs\" COIN_KIND=COIN_KIND_GROESTLCOIN_TESTNET COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
+DEFINES_LIB=# we're not using the lib :)
+APPNAME ="Groestlcoin Test"
+APP_LOAD_PARAMS += --path $(APP_PATH)
+APP_LOAD_FLAGS=--appFlags 0xa50
+else
+ifeq ($(filter clean,$(MAKECMDGOALS)),)
+$(error Unsupported COIN - use groestlcoin, groestlcoin_testnet)
+endif
+endif
+
+APP_LOAD_PARAMS += $(APP_LOAD_FLAGS)
+DEFINES += $(DEFINES_LIB)
+
+ifeq ($(TARGET_NAME),TARGET_NANOS)
+ICONNAME=icons/nanos_app_$(COIN).gif
+else
+ICONNAME=icons/nanox_app_$(COIN).gif
+endif
+
+################
+# Default rule #
+################
+all: default
+
+############
+# Platform #
+############
+
+DEFINES   += OS_IO_SEPROXYHAL IO_SEPROXYHAL_BUFFER_SIZE_B=300
+DEFINES   += HAVE_BAGL HAVE_SPRINTF HAVE_SNPRINTF_FORMAT_U
+DEFINES   += HAVE_IO_USB HAVE_L4_USBLIB IO_USB_MAX_ENDPOINTS=4 IO_HID_EP_LENGTH=64 HAVE_USB_APDU
+DEFINES   += LEDGER_MAJOR_VERSION=$(APPVERSION_M) LEDGER_MINOR_VERSION=$(APPVERSION_N) LEDGER_PATCH_VERSION=$(APPVERSION_P) TCS_LOADER_PATCH_VERSION=0
+DEFINES   += HAVE_UX_FLOW
+# U2F
+DEFINES   += HAVE_U2F HAVE_IO_U2F
+DEFINES   += U2F_PROXY_MAGIC=\"BTC\"
+DEFINES   += USB_SEGMENT_SIZE=64
+DEFINES   += BLE_SEGMENT_SIZE=32 #max MTU, min 20
+
+#WEBUSB_URL     = www.ledgerwallet.com
+#DEFINES       += HAVE_WEBUSB WEBUSB_URL_SIZE_B=$(shell echo -n $(WEBUSB_URL) | wc -c) WEBUSB_URL=$(shell echo -n $(WEBUSB_URL) | sed -e "s/./\\\'\0\\\',/g")
+DEFINES   += HAVE_WEBUSB WEBUSB_URL_SIZE_B=0 WEBUSB_URL=""
+
+DEFINES   += UNUSED\(x\)=\(void\)x
+DEFINES   += APPVERSION=\"$(APPVERSION)\"
+
+DEFINES += BLAKE_SDK
+
+ifeq ($(TARGET_NAME),TARGET_NANOX)
+DEFINES       += HAVE_BLE BLE_COMMAND_TIMEOUT_MS=2000
+DEFINES       += HAVE_BLE_APDU # basic ledger apdu transport over BLE
+endif
+
+ifeq ($(TARGET_NAME),TARGET_NANOS)
+DEFINES       += HAVE_WALLET_ID_SDK
+else
+DEFINES       += HAVE_GLO096
+DEFINES       += HAVE_BAGL BAGL_WIDTH=128 BAGL_HEIGHT=64
+DEFINES       += HAVE_BAGL_ELLIPSIS # long label truncation feature
+DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_REGULAR_11PX
+DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_EXTRABOLD_11PX
+DEFINES       += HAVE_BAGL_FONT_OPEN_SANS_LIGHT_16PX
+endif
+
+# GROESTL addition.
+DEFINES       += HAVE_GROESTL
+INCLUDES_PATH += $(BOLOS_SDK)/lib_cxng/src
+SOURCE_PATH   += $(BOLOS_SDK)/lib_cxng/src/cx_Groestl-ref.c
+SOURCE_PATH   += $(BOLOS_SDK)/lib_cxng/src/cx_utils.c
+
+# Enabling debug PRINTF
+DEBUG:=0
+ifneq ($(DEBUG),0)
+        ifeq ($(TARGET_NAME),TARGET_NANOS)
+                DEFINES   += HAVE_PRINTF PRINTF=screen_printf
+        else
+                DEFINES   += HAVE_PRINTF PRINTF=mcu_usb_printf
+        endif
+else
+        DEFINES   += PRINTF\(...\)=
+endif
+
+
+
+##############
+# Compiler #
+##############
+ifneq ($(BOLOS_ENV),)
+$(info BOLOS_ENV=$(BOLOS_ENV))
+CLANGPATH := $(BOLOS_ENV)/clang-arm-fropi/bin/
+GCCPATH := $(BOLOS_ENV)/gcc-arm-none-eabi-5_3-2016q1/bin/
+else
+$(info BOLOS_ENV is not set: falling back to CLANGPATH and GCCPATH)
+endif
+ifeq ($(CLANGPATH),)
+$(info CLANGPATH is not set: clang will be used from PATH)
+endif
+ifeq ($(GCCPATH),)
+$(info GCCPATH is not set: arm-none-eabi-* will be used from PATH)
+endif
+
+CC       := $(CLANGPATH)clang
+
+CFLAGS += -Oz
+
+AS     := $(GCCPATH)arm-none-eabi-gcc
+
+LD       := $(GCCPATH)arm-none-eabi-gcc
+LDFLAGS  += -O3 -Os
+LDLIBS   += -lm -lgcc -lc
+
+# import rules to compile glyphs(/pone)
+include $(BOLOS_SDK)/Makefile.glyphs
+
+### variables processed by the common makefile.rules of the SDK to grab source files and include dirs
+APP_SOURCE_PATH  += src
+SDK_SOURCE_PATH  += lib_stusb lib_stusb_impl lib_u2f qrcode
+SDK_SOURCE_PATH  += lib_ux
+
+ifeq ($(TARGET_NAME),TARGET_NANOX)
+SDK_SOURCE_PATH  += lib_blewbxx lib_blewbxx_impl
+endif
+
+load: all
+	python -m ledgerblue.loadApp $(APP_LOAD_PARAMS)
+
+delete:
+	python -m ledgerblue.deleteApp $(COMMON_DELETE_PARAMS)
+
+# import generic rules from the sdk
+include $(BOLOS_SDK)/Makefile.rules
+
+#add dependency on custom makefile filename
+dep/%.d: %.c Makefile
+
+listvariants:
+	@echo VARIANTS COIN groestlcoin groestlcoin_testnet
