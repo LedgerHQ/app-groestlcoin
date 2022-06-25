@@ -4,7 +4,14 @@ on: [push, pull_request]
 
 jobs:
   job_build:
-    name: Compilation
+    name: Compilation for NanoS
+
+    strategy:
+      matrix:
+        include:
+          - model: nanos
+            SDK: "$NANOS_SDK"
+
     runs-on: ubuntu-latest
 
     container:
@@ -16,18 +23,18 @@ jobs:
 
       - name: Build
         run: |
-          make && mv bin/ groestlcoin-bin/
+          make DEBUG=0 COIN=groestlcoin BOLOS_SDK=${{ matrix.SDK }} && mv bin/ groestlcoin-bin/
           make clean
-          make COIN=groestlcoin_testnet && mv bin/ groestlcoin-testnet-bin/
+          make DEBUG=0 COIN=groestlcoin_testnet BOLOS_SDK=${{ matrix.SDK }} && mv bin/ groestlcoin-testnet-bin/
 
       - name: Upload Groestlcoin app binary
         uses: actions/upload-artifact@v2
         with:
-          name: groestlcoin-app
+          name: groestlcoin-app-${{ matrix.model }}
           path: groestlcoin-bin
 
       - name: Upload Groestlcoin Testnet app binary
         uses: actions/upload-artifact@v2
         with:
-          name: groestlcoin-testnet-app
+          name: groestlcoin-testnet-app-${{ matrix.model }}
           path: groestlcoin-testnet-bin
