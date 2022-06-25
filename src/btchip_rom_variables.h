@@ -28,6 +28,12 @@ extern unsigned char const BASE58ALPHABET[58];
 
 extern unsigned char const SIGNMAGIC[SIGNMAGIC_LENGTH];
 
+extern unsigned char const OVERWINTER_PARAM_PREVOUTS[16];
+extern unsigned char const OVERWINTER_PARAM_SEQUENCE[16];
+extern unsigned char const OVERWINTER_PARAM_OUTPUTS[16];
+extern unsigned char const OVERWINTER_PARAM_SIGHASH[16];
+extern unsigned char const OVERWINTER_NO_JOINSPLITS[32];
+
 #define HDKEY_VERSION_LENGTH 4
 
 extern unsigned char const TWOPOWER[8];
@@ -52,7 +58,7 @@ extern unsigned char const TWOPOWER[8];
 
 #define APDU_BASE_LENGTH 13
 
-#define DISPATCHER_APDUS 14
+#define DISPATCHER_APDUS 13
 
 typedef unsigned short (*apduProcessingFunction)(void);
 

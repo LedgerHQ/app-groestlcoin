@@ -46,6 +46,12 @@ unsigned char const SIGNMAGIC[] = {' ', 'S', 'i', 'g', 'n', 'e', 'd', ' ', 'M',
 unsigned char const TWOPOWER[] = {0x01, 0x02, 0x04, 0x08,
                                   0x10, 0x20, 0x40, 0x80};
 
+unsigned char const OVERWINTER_PARAM_PREVOUTS[16] = { 'Z', 'c', 'a', 's', 'h', 'P', 'r', 'e', 'v', 'o', 'u', 't', 'H', 'a', 's', 'h' };
+unsigned char const OVERWINTER_PARAM_SEQUENCE[16] = { 'Z', 'c', 'a', 's', 'h', 'S', 'e', 'q', 'u', 'e', 'n', 'c', 'H', 'a', 's', 'h' };
+unsigned char const OVERWINTER_PARAM_OUTPUTS[16] = { 'Z', 'c', 'a', 's', 'h', 'O', 'u', 't', 'p', 'u', 't', 's', 'H', 'a', 's', 'h' };
+unsigned char const OVERWINTER_PARAM_SIGHASH[16] = { 'Z', 'c', 'a', 's', 'h', 'S', 'i', 'g', 'H', 'a', 's', 'h', 0, 0, 0, 0 };
+unsigned char const OVERWINTER_NO_JOINSPLITS[32] = { 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0 };
+
 unsigned char const DISPATCHER_CLA[] = {
     BTCHIP_CLA, // btchip_apdu_setup,
     BTCHIP_CLA, // btchip_apdu_verify_pin,
@@ -59,7 +65,6 @@ unsigned char const DISPATCHER_CLA[] = {
     BTCHIP_CLA, // btchip_apdu_sign_message,
     BTCHIP_CLA, // btchip_apdu_get_random,
     BTCHIP_CLA, // btchip_apdu_get_firmware_version,
-    BTCHIP_CLA, // btchip_apdu_set_alternate_coin_version
     BTCHIP_CLA, // btchip_apdu_get_coin_version
 };
 
@@ -76,7 +81,6 @@ unsigned char const DISPATCHER_INS[] = {
     BTCHIP_INS_SIGN_MESSAGE,             // btchip_apdu_sign_message,
     BTCHIP_INS_GET_RANDOM,               // btchip_apdu_get_random,
     BTCHIP_INS_GET_FIRMWARE_VERSION,     // btchip_apdu_get_firmware_version,
-    BTCHIP_INS_SET_ALTERNATE_COIN_VER, // btchip_apdu_set_alternate_coin_version
     BTCHIP_INS_GET_COIN_VER,           // btchip_apdu_get_coin_version
 };
 
@@ -93,7 +97,6 @@ unsigned char const DISPATCHER_DATA_IN[] = {
     1, // btchip_apdu_sign_message,
     0, // btchip_apdu_get_random,
     0, // btchip_apdu_get_firmware_version,
-    1, // btchip_apdu_set_alternate_coin_version
     0, // btchip_apdu_get_coin_version
 };
 
@@ -110,6 +113,5 @@ apduProcessingFunction const DISPATCHER_FUNCTIONS[] = {
     btchip_apdu_sign_message,
     btchip_apdu_get_random,
     btchip_apdu_get_firmware_version,
-    btchip_apdu_set_alternate_coin_version,
     btchip_apdu_get_coin_version,
 };

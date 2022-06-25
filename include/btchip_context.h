@@ -24,12 +24,15 @@
 #include "btchip_secure_value.h"
 #include "btchip_filesystem_tx.h"
 
-#define MAX_OUTPUT_TO_CHECK 200
+#define MAX_OUTPUT_TO_CHECK 100
 #define MAX_COIN_ID 13
 #define MAX_SHORT_COIN_ID 5
 
 #define MAGIC_TRUSTED_INPUT 0x32
 #define MAGIC_DEV_KEY 0x01
+
+#define ZCASH_USING_OVERWINTER 0x01
+#define ZCASH_USING_OVERWINTER_SAPLING 0x02
 
 enum btchip_modes_e {
     BTCHIP_MODE_ISSUER = 0x00,
@@ -86,14 +89,18 @@ enum btchip_output_parsing_state_e {
     BTCHIP_OUTPUT_PARSING_NUMBER_OUTPUTS = 0x01,
     BTCHIP_OUTPUT_PARSING_OUTPUT = 0x02,
     BTCHIP_OUTPUT_FINALIZE_TX = 0x03,
-    BTCHIP_BIP44_CHANGE_PATH_VALIDATION = 0x04,
-    BTCHIP_OUTPUT_HANDLE_LEGACY = 0xFF
+    BTCHIP_BIP44_CHANGE_PATH_VALIDATION = 0x04
 };
 typedef enum btchip_output_parsing_state_e btchip_output_parsing_state_t;
 
+
+typedef union multi_hash {
+    cx_sha256_t sha256;
+    cx_blake2b_t blake2b;
+} multi_hash;
+
 struct segwit_hash_s {
-    cx_sha256_t hashPrevouts;
-    cx_sha256_t hashSequence;
+    union multi_hash hashPrevouts;
 };
 struct segwit_cache_s {
     unsigned char hashedPrevouts[32];
@@ -132,7 +139,7 @@ typedef struct btchip_transaction_context_s btchip_transaction_context_t;
 
 struct btchip_tmp_output_s {
     /** Change address if initialized */
-    unsigned char changeAddress[21];
+    unsigned char changeAddress[20];
     /** Flag set if the change address was initialized */
     unsigned char changeInitialized;
     /** Flag set if the change address was checked */
@@ -152,21 +159,6 @@ struct btchip_context_s {
     /** (Integrity protected) transaction context */
     btchip_transaction_context_t transactionContext;
 
-    /** Current Pay To Address version */
-    unsigned short payToAddressVersion;
-    /** Current Pay To Script Hash version */
-    unsigned short payToScriptHashVersion;
-    /** Current coin family */
-    unsigned char coinFamily;
-    /** Current Coin ID */
-    unsigned char coinId[MAX_COIN_ID];
-    /** Current short Coin ID */
-    unsigned char shortCoinId[MAX_SHORT_COIN_ID];
-    /** Current Coin ID length */
-    unsigned char coinIdLength;
-    /** Current short Coin ID length */
-    unsigned char shortCoinIdLength;
-
     /** Non protected transaction context */
 
     /** Last U2F Token streamed by host to attempt pubkey request */
@@ -174,7 +166,7 @@ struct btchip_context_s {
     unsigned char has_valid_token;
 
     /** Full transaction hash context */
-    cx_sha256_t transactionHashFull;
+    union multi_hash transactionHashFull;
     /** Authorization transaction hash context */
     cx_sha256_t transactionHashAuthorization;
     /** Current hash to perform (TRANSACTION_HASH_) */
@@ -191,6 +183,8 @@ struct btchip_context_s {
     unsigned char usingSegwit;
     unsigned char usingCashAddr;
     unsigned char segwitParsedOnce;
+    /** Prevents display of segwit input warning at each InputHashStart APDU */
+    unsigned char segwitWarningSeen;
 
     /* /Segregated Witness changes */
 
@@ -235,6 +229,17 @@ struct btchip_context_s {
     unsigned char outputParsingState;
     unsigned char totalOutputAmount[8];
     unsigned char changeOutputFound;
+
+    /* Overwinter */
+    unsigned char usingOverwinter;
+    unsigned char overwinterSignReady;
+    unsigned char nVersionGroupId[4];
+    unsigned char nExpiryHeight[4];
+    unsigned char nLockTime[4];
+    unsigned char sigHashType[4];
+
+    /*Is swap mode*/
+    unsigned char called_from_swap;
 };
 typedef struct btchip_context_s btchip_context_t;
 
@@ -263,38 +268,42 @@ typedef enum btchip_coin_kind_e {
     COIN_KIND_RFU,
     COIN_KIND_STRATIS,
     COIN_KIND_PEERCOIN,
-    COIN_KIND_POSW,
     COIN_KIND_PIVX,
     COIN_KIND_STEALTH,
     COIN_KIND_VIACOIN,
     COIN_KIND_VERTCOIN,
     COIN_KIND_DIGIBYTE,
     COIN_KIND_QTUM,
-    COIN_KIND_HCASH,
     COIN_KIND_BITCOIN_PRIVATE,
+    COIN_KIND_XRHODIUM,
     COIN_KIND_HORIZEN,
-    COIN_KIND_ZCOIN,
     COIN_KIND_GAMECREDITS,
+    COIN_KIND_FIRO,
     COIN_KIND_ZCLASSIC,
+    COIN_KIND_XSN,
+    COIN_KIND_NIX,
+    COIN_KIND_LBRY,
+    COIN_KIND_RESISTANCE,
+    COIN_KIND_RAVENCOIN,
+    COIN_KIND_HYDRA,
     COIN_KIND_GROESTLCOIN,
     COIN_KIND_GROESTLCOIN_TESTNET
 } btchip_coin_kind_t;
 
 typedef struct btchip_altcoin_config_s {
+    unsigned short bip44_coin_type;
+    unsigned short bip44_coin_type2;
     unsigned short p2pkh_version;
     unsigned short p2sh_version;
     unsigned char family;
     //unsigned char* iconsuffix;// will use the icon provided on the stack (maybe)
-#ifdef TARGET_BLUE
-    const char* header_text;
-    unsigned int color_header;
-    unsigned int color_dashboard;
-#endif // TARGET_BLUE
-    const char* coinid; // used coind id for message signature prefix
-    const char* name; // for ux displays
-    const char* name_short; // for unit in ux displays
+    char coinid[14]; // used coind id for message signature prefix
+    char name[16]; // for ux displays
+    char name_short[6]; // for unit in ux displays
+    char native_segwit_prefix_val[5];
     const char* native_segwit_prefix; // null if no segwit prefix
     unsigned int forkid;
+    unsigned int zcash_consensus_branch_id;
     btchip_coin_kind_t kind;
     unsigned int flags;
 } btchip_altcoin_config_t;
