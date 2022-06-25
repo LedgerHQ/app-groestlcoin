@@ -19,5 +19,4 @@
 
 #include "btchip_public_ram_variables.h"
 
-
 btchip_storage_t const N_btchip_real;

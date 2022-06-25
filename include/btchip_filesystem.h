@@ -35,6 +35,7 @@ enum btchip_family_e {
     BTCHIP_FAMILY_BITCOIN = 0x01,
     BTCHIP_FAMILY_PEERCOIN = 0x02,
     BTCHIP_FAMILY_QTUM = 0x03,
+    BTCHIP_FAMILY_STEALTH = 0x04
 };
 
 struct btchip_config_s {
@@ -73,8 +74,13 @@ typedef struct btchip_storage_s {
 } btchip_storage_t;
 
 // the global nvram memory variable
+#if 0
+extern btchip_storage_t N_btchip_real;
+#define N_btchip (*(btchip_storage_t *)PIC(&N_btchip_real))
+#else
 extern btchip_storage_t const N_btchip_real;
 #define N_btchip (*(volatile btchip_storage_t *)PIC(&N_btchip_real))
+#endif
 
 void btchip_set_operation_mode(unsigned char operationMode);
 
