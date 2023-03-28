@@ -192,7 +192,7 @@ unsigned int io_seproxyhal_touch_settings(const bagl_element_t *e);
 unsigned int io_seproxyhal_touch_exit(const bagl_element_t *e);
 void ui_idle(void);
 
-#ifdef TARGET_NANOX
+#if defined(TARGET_NANOX) || defined(TARGET_NANOS2)
 #include "ux.h"
 ux_state_t G_ux;
 bolos_ux_params_t G_ux_params;
@@ -1441,7 +1441,7 @@ void ui_transaction_p2sh_blue_init(void) {
 #endif // #if defined(TARGET_BLUE)
 
 
-#if defined(TARGET_NANOX)
+#if defined(TARGET_NANOX) || defined(TARGET_NANOS2)
 
 const char* settings_submenu_getter(unsigned int idx);
 void settings_submenu_selector(unsigned int idx);
@@ -1915,7 +1915,7 @@ void ui_idle(void) {
     UX_DISPLAY(ui_idle_blue, ui_idle_blue_prepro);
 #elif defined(TARGET_NANOS)
     UX_MENU_DISPLAY(0, menu_main, NULL);
-#elif defined(TARGET_NANOX)
+#elif defined(TARGET_NANOX) || defined(TARGET_NANOS2)
     // reserve a display stack slot if none yet
     if(G_ux.stack_count == 0) {
         ux_stack_push();
@@ -2447,7 +2447,7 @@ unsigned int btchip_bagl_confirm_full_output() {
     ux_step = 0;
     ux_step_count = 4;
     UX_DISPLAY(ui_verify_nanos, ui_verify_prepro);
-#elif defined(TARGET_NANOX)
+#elif defined(TARGET_NANOX) || defined(TARGET_NANOS2)
     ux_flow_init(0, ux_confirm_full_flow, NULL);
 #endif // TARGET_NANOX
     return 1;
@@ -2476,7 +2476,7 @@ unsigned int btchip_bagl_confirm_single_output() {
     ux_step = 0;
     ux_step_count = 3;
     UX_DISPLAY(ui_verify_output_nanos, ui_verify_output_prepro);
-#elif defined(TARGET_NANOX)
+#elif defined(TARGET_NANOX) || defined(TARGET_NANOS2)
     ux_flow_init(0, ux_confirm_single_flow, NULL);
 #endif // TARGET_NANOX
     return 1;
@@ -2493,7 +2493,7 @@ unsigned int btchip_bagl_finalize_tx() {
     ux_step = 0;
     ux_step_count = 2;
     UX_DISPLAY(ui_finalize_nanos, ui_finalize_prepro);
-#elif defined(TARGET_NANOX)
+#elif defined(TARGET_NANOX) || defined(TARGET_NANOS2)
     ux_flow_init(0, ux_finalize_flow, NULL);
 #endif // TARGET_NANOX
     return 1;
@@ -2510,7 +2510,7 @@ void btchip_bagl_confirm_message_signature() {
     ux_step = 0;
     ux_step_count = 2;
     UX_DISPLAY(ui_verify_message_signature_nanos, ui_verify_message_prepro);
-#elif defined(TARGET_NANOX)
+#elif defined(TARGET_NANOX) || defined(TARGET_NANOS2)
     ux_flow_init(0, ux_sign_flow, NULL);
 #endif // TARGET_NANOX
 }
@@ -2538,8 +2538,7 @@ void btchip_bagl_display_public_key(unsigned char* derivation_path) {
     ux_step = is_derivation_path_unusual?0:4;
     ux_step_count = 6;
     UX_DISPLAY(ui_display_address_nanos, ui_display_address_nanos_prepro);
-    
-#elif defined(TARGET_NANOX)
+#elif defined(TARGET_NANOX) || defined(TARGET_NANOS2)
     ux_flow_init(0, is_derivation_path_unusual?ux_display_public_with_warning_flow:ux_display_public_flow, NULL);
 #endif // TARGET_NANOX
 }
@@ -2552,7 +2551,7 @@ void btchip_bagl_display_token()
     ux_step = 0;
     ux_step_count = 1;
     UX_DISPLAY(ui_display_token_nanos, NULL);
-#elif defined(TARGET_NANOX)
+#elif defined(TARGET_NANOX) || defined(TARGET_NANOS2)
     ux_flow_init(0, ux_display_token_flow, NULL);
 #endif // #if TARGET_ID
 }
@@ -2566,7 +2565,7 @@ void btchip_bagl_request_pubkey_approval()
     ux_step = 0;
     ux_step_count = 1;
     UX_DISPLAY(ui_request_pubkey_approval_nanos, NULL);
-#elif defined(TARGET_NANOX)
+#elif defined(TARGET_NANOX) || defined(TARGET_NANOS2)
     ux_flow_init(0, ux_request_pubkey_approval_flow, NULL);
 #endif // #if TARGET_ID
 }
@@ -2581,7 +2580,7 @@ void btchip_bagl_request_change_path_approval(unsigned char* change_path)
     ux_step = 0;
     ux_step_count = 4;
     UX_DISPLAY(ui_request_change_path_approval_nanos, ui_request_change_path_approval_nanos_prepro);
-#elif defined(TARGET_NANOX)
+#elif defined(TARGET_NANOX) || defined(TARGET_NANOS2)
     ux_flow_init(0, ux_request_change_path_approval_flow, NULL);
 #endif // #if TARGET_ID
 }

@@ -26,6 +26,11 @@
 
 #define OUTPUT_SCRIPT_NATIVE_WITNESS_PROGRAM_OFFSET 3
 
+#ifdef HAVE_GROESTL
+#include "cx_ram.h"
+extern union cx_u G_cx;
+#endif // HAVE_GROESTL
+
 unsigned char btchip_output_script_is_regular(unsigned char *buffer);
 unsigned char btchip_output_script_is_p2sh(unsigned char *buffer);
 unsigned char btchip_output_script_is_op_return(unsigned char *buffer);
