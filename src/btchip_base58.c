@@ -1,27 +1,27 @@
 /*******************************************************************************
-*   Ledger App - Bitcoin Wallet
-*   (c) 2016-2019 Ledger
-*
-*  Licensed under the Apache License, Version 2.0 (the "License");
-*  you may not use this file except in compliance with the License.
-*  You may obtain a copy of the License at
-*
-*      http://www.apache.org/licenses/LICENSE-2.0
-*
-*  Unless required by applicable law or agreed to in writing, software
-*  distributed under the License is distributed on an "AS IS" BASIS,
-*  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-*  See the License for the specific language governing permissions and
-*  limitations under the License.
-********************************************************************************/
+ *   Ledger App - Bitcoin Wallet
+ *   (c) 2016-2019 Ledger
+ *
+ *  Licensed under the Apache License, Version 2.0 (the "License");
+ *  you may not use this file except in compliance with the License.
+ *  You may obtain a copy of the License at
+ *
+ *      http://www.apache.org/licenses/LICENSE-2.0
+ *
+ *  Unless required by applicable law or agreed to in writing, software
+ *  distributed under the License is distributed on an "AS IS" BASIS,
+ *  WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ *  See the License for the specific language governing permissions and
+ *  limitations under the License.
+ ********************************************************************************/
 
 #include "btchip_internal.h"
 
 #define MAX_DEC_INPUT_SIZE 164
 #define MAX_ENC_INPUT_SIZE 120
 
-int btchip_decode_base58(const char *in, size_t length,
-                         unsigned char *out, size_t *outlen) {
+int btchip_decode_base58(const char *in, size_t length, unsigned char *out,
+                         size_t *outlen) {
   unsigned char tmp[MAX_DEC_INPUT_SIZE];
   unsigned char buffer[MAX_DEC_INPUT_SIZE] = {0};
   unsigned char i;
@@ -32,7 +32,7 @@ int btchip_decode_base58(const char *in, size_t length,
     return -1;
   }
   os_memmove(tmp, in, length);
-  PRINTF("To decode\n%.*H\n",length,tmp);
+  PRINTF("To decode\n%.*H\n", length, tmp);
   for (i = 0; i < length; i++) {
     if (in[i] >= sizeof(BASE58TABLE)) {
       return -1;
@@ -71,7 +71,7 @@ int btchip_decode_base58(const char *in, size_t length,
   }
 
   os_memmove(out, buffer + j - zeroCount, length);
-  PRINTF("Decoded\n%.*H\n",length,out);
+  PRINTF("Decoded\n%.*H\n", length, out);
   *outlen = length;
   return 0;
 }
@@ -89,7 +89,7 @@ int btchip_encode_base58(const unsigned char *in, size_t length,
   }
 
   PRINTF("Length to encode %d\n", length);
-  PRINTF("To encode\n%.*H\n",length,in);
+  PRINTF("To encode\n%.*H\n", length, in);
 
   while ((zeroCount < length) && (in[zeroCount] == 0)) {
     ++zeroCount;
@@ -129,6 +129,6 @@ int btchip_encode_base58(const unsigned char *in, size_t length,
   }
   *outlen = i;
   PRINTF("Length encoded %d\n", i);
-  PRINTF("Encoded\n%.*H\n",i,out);
+  PRINTF("Encoded\n%.*H\n", i, out);
   return 0;
 }
