@@ -76,7 +76,7 @@ int bech32_encode(char *output, const char *hrp, const uint8_t *data,
  *       data_len: Pointer to a size_t that will be updated to be the number
  *                 of entries in data.
  *  In: input:     Pointer to a null-terminated Bech32 string.
- *  Returns 1 if succesful.
+ *  Returns 1 if successful.
  */
 int bech32_decode(char *hrp, uint8_t *data, size_t *data_len,
                   const char *input);

@@ -27,7 +27,7 @@ APP_LOAD_PARAMS= --curve secp256k1 $(COMMON_LOAD_PARAMS)
 
 APPVERSION_M=1
 APPVERSION_N=3
-APPVERSION_P=9
+APPVERSION_P=10
 APPVERSION=$(APPVERSION_M).$(APPVERSION_N).$(APPVERSION_P)
 APP_LOAD_FLAGS=--appFlags 0x250 --dep Bitcoin:$(APPVERSION)
 
@@ -235,8 +235,11 @@ endif
 # GROESTL addition.
 DEFINES       += HAVE_GROESTL
 INCLUDES_PATH += $(BOLOS_SDK)/lib_cxng/src
-SOURCE_PATH   += $(BOLOS_SDK)/lib_cxng/src/cx_Groestl-ref.c
-SOURCE_PATH   += $(BOLOS_SDK)/lib_cxng/src/cx_utils.c
+# Files are not valid for nanos, where the needed functions are included in the lib
+ifneq ($(API_LEVEL),)
+APP_SOURCE_FILES   += $(BOLOS_SDK)/lib_cxng/src/cx_Groestl-ref.c
+APP_SOURCE_FILES   += $(BOLOS_SDK)/lib_cxng/src/cx_utils.c
+endif
 
 # Enabling debug PRINTF
 DEBUG = 0
@@ -250,8 +253,6 @@ ifneq ($(DEBUG),0)
 else
         DEFINES   += PRINTF\(...\)=
 endif
-
-
 
 ##############
 # Compiler #
