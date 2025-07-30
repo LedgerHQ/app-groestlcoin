@@ -384,6 +384,8 @@ unsigned int io_seproxyhal_touch_settings(const bagl_element_t *e);
 unsigned int io_seproxyhal_touch_exit(const bagl_element_t *e);
 void ui_idle(void);
 
+void app_exit(void);
+
 #if defined(TARGET_NANOX) || defined(TARGET_NANOS2)
 #include "ux.h"
 ux_state_t G_ux;
@@ -1475,7 +1477,7 @@ unsigned int io_seproxyhal_touch_settings(const bagl_element_t *e) {
 
 unsigned int io_seproxyhal_touch_exit(const bagl_element_t *e) {
   // go back to the home screen
-  os_sched_exit(0);
+  app_exit();
   return 0; // DO NOT REDRAW THE BUTTON
 }
 
@@ -1863,7 +1865,7 @@ UX_STEP_NOCB(ux_idle_flow_3_step, bn,
                  "Version",
                  APPVERSION,
              });
-UX_STEP_VALID(ux_idle_flow_4_step, pb, os_sched_exit(-1),
+UX_STEP_VALID(ux_idle_flow_4_step, pb, app_exit(),
               {
                   &C_icon_dashboard_x,
                   "Quit",
@@ -2797,7 +2799,13 @@ void btchip_bagl_request_change_path_approval(unsigned char *change_path) {
 
 void app_exit(void) {
   BEGIN_TRY_L(exit) {
-    TRY_L(exit) { os_sched_exit(-1); }
+    TRY_L(exit) {
+#ifdef REVAMPED_IO
+      // handle properly the USB stop/start
+      os_io_stop();
+#endif /* #ifdef REVAMPED_IO */
+      os_sched_exit(-1);
+    }
     FINALLY_L(exit) {}
   }
   END_TRY_L(exit);
