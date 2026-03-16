@@ -41,14 +41,14 @@ DEFINES   += COIN_P2PKH_VERSION=36 COIN_P2SH_VERSION=5 COIN_FAMILY=1 COIN_COINID
 DEFINES_LIB=# we're not using the lib :)
 APPNAME ="Groestlcoin"
 APP_LOAD_PARAMS += --path "*/17'"
-APP_LOAD_FLAGS=--appFlags 0x250
+APP_LOAD_FLAGS=--appFlags 0x240
 else ifeq ($(COIN),groestlcoin_testnet)
 # Groestlcoin testnet
 DEFINES   += COIN_P2PKH_VERSION=111 COIN_P2SH_VERSION=196 COIN_FAMILY=1 COIN_COINID=\"GroestlCoin\" COIN_COINID_HEADER=\"GROESTLCOIN\" COIN_COLOR_HDR=0xFCB653 COIN_COLOR_DB=0xFEDBA9 COIN_COINID_NAME=\"Groestlcoin\" COIN_COINID_SHORT=\"TGRS\" COIN_NATIVE_SEGWIT_PREFIX=\"tgrs\" COIN_KIND=COIN_KIND_GROESTLCOIN COIN_FLAGS=FLAG_SEGWIT_CHANGE_SUPPORT
 DEFINES_LIB=# we're not using the lib :)
 APPNAME ="Groestlcoin Test"
 APP_LOAD_PARAMS += --path "*/1'"
-APP_LOAD_FLAGS=--appFlags 0x250
+APP_LOAD_FLAGS=--appFlags 0x240
 else
 ifeq ($(filter clean,$(MAKECMDGOALS)),)
 $(error Unsupported COIN - use groestlcoin, groestlcoin_testnet)
