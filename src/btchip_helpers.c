@@ -18,10 +18,6 @@
 #include "btchip_apdu_constants.h"
 #include "btchip_internal.h"
 
-#ifdef HAVE_GROESTL
-union cx_u G_cx;
-#endif // HAVE_GROESTL
-
 const unsigned char TRANSACTION_OUTPUT_SCRIPT_PRE[] = {
     0x19, 0x76, 0xA9,
     0x14}; // script length, OP_DUP, OP_HASH160, address length
